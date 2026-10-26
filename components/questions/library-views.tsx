@@ -12,6 +12,7 @@ import { formatCount, formatDate, formatPercent } from "@/lib/format"
 import type { Question, SystemSettings } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { responseStats, reusableDate, type SortKey } from "./library-utils"
+import { questionHref } from "@/lib/routes"
 
 export const COLUMNS = [
   { key: "id", label: "問題ID", sort: "id" },
@@ -65,13 +66,13 @@ export function LibraryTable({
     switch (key) {
       case "id":
         return (
-          <Link href={`/questions/${q.id}`} className="font-mono text-xs text-primary underline-offset-4 hover:underline">
+          <Link href={questionHref(q.id)} className="font-mono text-xs text-primary underline-offset-4 hover:underline">
             {q.id}
           </Link>
         )
       case "text":
         return (
-          <Link href={`/questions/${q.id}`} className="flex max-w-md items-center gap-2 hover:underline">
+          <Link href={questionHref(q.id)} className="flex max-w-md items-center gap-2 hover:underline">
             <span className="truncate">{q.text}</span>
             {q.isSample && <SampleTag />}
           </Link>
@@ -154,7 +155,7 @@ export function LibraryCards({ questions, categoryName, rules, today }: ViewProp
         const s = responseStats(q)
         return (
           <li key={q.id}>
-            <Link href={`/questions/${q.id}`} className="block h-full rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            <Link href={questionHref(q.id)} className="block h-full rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               <Card className="h-full transition-colors hover:border-primary/50">
                 <CardContent className="flex h-full flex-col gap-3">
                   <div className="flex items-center gap-2">

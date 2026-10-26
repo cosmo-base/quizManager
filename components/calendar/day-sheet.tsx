@@ -17,6 +17,7 @@ import type { Platform, PlanSlot } from "@/lib/types"
 import { CAL_PLATFORMS } from "./calendar-views"
 import { LOCKED_STATUSES } from "./slot-chip"
 import { DEFAULT_SLOT_DRAFT, SlotFields, type SlotDraft } from "./slot-fields"
+import { questionHref } from "@/lib/routes"
 
 function SlotEditor({ date, platform, slot, onDone }: { date: string; platform: Platform; slot?: PlanSlot; onDone: () => void }) {
   const { actions } = useQuiz()
@@ -87,7 +88,7 @@ function SlotCard({ date, platform, slot }: { date: string; platform: Platform; 
             </p>
           )}
           {q ? (
-            <Link href={`/questions/${q.id}`} className="flex flex-col gap-1 rounded-md border px-3 py-2 hover:bg-accent">
+            <Link href={questionHref(q.id)} className="flex flex-col gap-1 rounded-md border px-3 py-2 hover:bg-accent">
               <span className="flex items-center gap-2 text-xs">
                 <span className="font-mono text-muted-foreground">{q.id}</span>
                 <StatusBadge {...QUESTION_STATUS[q.status]} />

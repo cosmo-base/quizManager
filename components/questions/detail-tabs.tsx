@@ -1,5 +1,6 @@
 "use client"
 
+import { questionHref } from "@/lib/routes"
 import Link from "next/link"
 import { ExternalLink } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -287,7 +288,7 @@ function RelatedTab({
           return (
             <li key={o.id} className="flex items-center gap-3 py-2 text-sm first:pt-0 last:pb-0">
               <PlatformMark platform={o.platform} />
-              <Link href={`/questions/${o.id}`} className="font-mono text-xs text-primary hover:underline">
+              <Link href={questionHref(o.id)} className="font-mono text-xs text-primary hover:underline">
                 {o.id}
               </Link>
               <span className="min-w-0 flex-1 truncate">{o.text}</span>
@@ -319,7 +320,7 @@ function RelatedTab({
               <li key={s.questionId} className="flex flex-col gap-1 py-3 text-sm first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <PlatformMark platform={s.platform} />
-                  <Link href={`/questions/${s.questionId}`} className="font-mono text-xs text-primary hover:underline">
+                  <Link href={questionHref(s.questionId)} className="font-mono text-xs text-primary hover:underline">
                     {s.questionId}
                   </Link>
                   {s.sameKnowledge && <StatusBadge label="同一知識" tone="warning" />}

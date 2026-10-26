@@ -1,5 +1,6 @@
 "use client"
 
+import { questionHref } from "@/lib/routes"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { produce, type Draft } from "immer"
 import { toast } from "sonner"
@@ -620,7 +621,7 @@ function useQuizStoreValue() {
       const qq = d.questions.find((x) => x.id === questionId)!
       qq.plannedDate = sl.date
       sl.status = qq.status === "approved" ? "confirmed" : qq.status === "review" ? "review" : sl.status
-      log(d, "既存問題を出題枠へ割り当て", `${questionId} → ${sl.date}`, `/questions/${questionId}`)
+      log(d, "既存問題を出題枠へ割り当て", `${questionId} → ${sl.date}`, questionHref(questionId))
     })
     toast.success(label(`${questionId} を ${slot.date} に割り当てました`))
     return true
@@ -657,7 +658,7 @@ function useQuizStoreValue() {
       }
       const slot = d.slots.find((x) => x.questionId === id)
       if (slot && ["confirmed", "scheduled"].includes(slot.status)) slot.status = "review"
-      log(d, `問題を修正（v${version}）`, id, `/questions/${id}`)
+      log(d, `問題を修正（v${version}）`, id, questionHref(id))
     })
     toast.success(label("修正を保存しました"), { description: unscheduled ? "投稿予約を解除し、再検証待ちにしました。旧画像は無効化されました" : "再検証が必要です。旧画像は無効化されました" })
     return true
@@ -682,7 +683,7 @@ function useQuizStoreValue() {
       qq.factCheck = result
       qq.autoApprovable = result.status === "passed" && qq.duplicate.level !== "strong"
       qq.reviewHistory.push({ at: nowIso(), by: "検証エンジン（デモ）", action: "reverified", note: result.status })
-      log(d, "検証を再実行", id, `/questions/${id}`)
+      log(d, "検証を再実行", id, questionHref(id))
     })
     if (result) toast.success(label("検証を再実行しました"), { description: `判定：${result.status === "passed" ? "検証OK" : result.status === "warning" ? "要確認" : "検証NG"}（擬似判定）` })
   }
@@ -732,7 +733,7 @@ function useQuizStoreValue() {
       qq.reviewHistory.push({ at: nowIso(), by: stateRef.current.userName, action: "approved", note: note || undefined })
       const slot = d.slots.find((x) => x.questionId === id)
       if (slot) slot.status = "confirmed"
-      log(d, `問題を承認（確定版 v${qq.confirmedVersion}）`, id, `/questions/${id}`)
+      log(d, `問題を承認（確定版 v${qq.confirmedVersion}）`, id, questionHref(id))
     })
     generateImage(id)
     toast.success(label(`${id} を承認しました`), { description: "確定版から投稿画像を生成しています" })
@@ -748,7 +749,7 @@ function useQuizStoreValue() {
       q.reviewHistory.push({ at: nowIso(), by: stateRef.current.userName, action: "returned", note })
       const slot = d.slots.find((x) => x.questionId === id)
       if (slot) slot.status = "review"
-      log(d, "問題を差し戻し", id, `/questions/${id}`)
+      log(d, "問題を差し戻し", id, questionHref(id))
     })
     toast.success(label(`${id} を差し戻しました`))
   }
@@ -766,7 +767,7 @@ function useQuizStoreValue() {
         slot.questionId = null
       }
       q.plannedDate = null
-      log(d, "問題を不採用", id, `/questions/${id}`)
+      log(d, "問題を不採用", id, questionHref(id))
     })
     toast.success(label(`${id} を不採用にしました`), { description: "出題枠は「生成待ち」に戻りました" })
   }
@@ -821,7 +822,7 @@ function useQuizStoreValue() {
       copy.versions = [{ ...copy.versions.at(-1)!, version: 1, createdAt: nowIso(), author: s.userName, summary: `${id} から複製` }]
       copy.certification = "none"
       d.questions.unshift(copy)
-      log(d, "問題を複製", `${id} → ${newId}`, `/questions/${newId}`)
+      log(d, "問題を複製", `${id} → ${newId}`, questionHref(newId))
     })
     toast.success(label(`${newId} として複製しました`), { description: "下書き・未検証の状態です" })
     return newId
@@ -832,7 +833,7 @@ function useQuizStoreValue() {
     update((d) => {
       const q = d.questions.find((x) => x.id === id)
       if (q) q.certification = status
-      log(d, `検定ステータスを変更（${status}）`, id, `/questions/${id}`)
+      log(d, `検定ステータスを変更（${status}）`, id, questionHref(id))
     })
     toast.success(label("検定ステータスを更新しました"))
   }
@@ -1011,7 +1012,7 @@ function useQuizStoreValue() {
       qq.responses.push(snap)
       const sl = d.slots.find((x) => x.questionId === j.questionId)
       if (sl) sl.status = "aggregated"
-      log(d, "回答結果を取得（確定値・デモ）", jobId, `/questions/${j.questionId}`)
+      log(d, "回答結果を取得（確定値・デモ）", jobId, questionHref(j.questionId))
     })
     if (snap) {
       toast.success(label("回答結果を取得しました"), { description: `回答数 ${snap.responses}（擬似データ）` })
@@ -1093,7 +1094,7 @@ function useQuizStoreValue() {
       q.status = "posted"
       q.plannedDate = DEMO_TODAY
       q.history.push({ postJobId: id, platform: "instagram", publishedAt: nowIso(), externalId: null, url: url || null, status: "posted", version: q.confirmedVersion ?? 1 })
-      log(d, "Instagram投稿を記録（手動）", questionId, `/questions/${questionId}`)
+      log(d, "Instagram投稿を記録（手動）", questionId, questionHref(questionId))
     })
     toast.success(label("Instagramの出題履歴を記録しました"))
   }

@@ -14,6 +14,7 @@ import { AI_MODELS } from "@/lib/constants"
 import { formatDate, formatDateTime, formatYen } from "@/lib/format"
 import type { GenerationJob, PipelineStepStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { questionHref } from "@/lib/routes"
 
 const STEP_ICON: Record<PipelineStepStatus, { icon: React.ComponentType<{ className?: string }>; cls: string; label: string }> = {
   pending: { icon: Circle, cls: "text-muted-foreground/50", label: "待機" },
@@ -141,7 +142,7 @@ export function JobProgress({ job }: { job: GenerationJob | undefined }) {
             <ul className="flex flex-col divide-y rounded-lg border">
               {results.map((q) => (
                 <li key={q.id}>
-                  <Link href={`/questions/${q.id}`} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent">
+                  <Link href={questionHref(q.id)} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent">
                     <PlatformMark platform={q.platform} />
                     <span className="font-mono text-xs text-muted-foreground">{q.id}</span>
                     <span className="min-w-0 flex-1 truncate">{q.text}</span>
