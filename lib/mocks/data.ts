@@ -582,7 +582,7 @@ export const MOCK_ACTIVITY: ActivityLog[] = [
 export const MOCK_INTEGRATIONS: Integration[] = [
   { key: "supabase", name: "Supabase（DB・認証）", status: "demo", note: "未接続。デモデータをブラウザ内メモリで使用中", lastCheckedAt: null },
   { key: "gemini", name: "Gemini API", status: "demo", note: "未接続。生成・検証は擬似処理です", lastCheckedAt: null },
-  { key: "x", name: "X API（アンケート投稿）", status: "unverified", note: "画像＋投票の併用、結果取得は技術検証中", lastCheckedAt: null },
+  { key: "x", name: "X API（アンケート投稿）", status: "unverified", note: "画像なし・本文＋投票（1/2/3）。OAuth 1.0a での投稿・結果取得を技術検証中", lastCheckedAt: null },
   { key: "discord", name: "Discord Bot", status: "demo", note: "未接続。投稿・リアクション集計は擬似処理です", lastCheckedAt: null },
   { key: "instagram", name: "Instagram", status: "disconnected", note: "投稿休止中（ストック管理のみ）", lastCheckedAt: null },
   { key: "sheets", name: "Google Sheets API", status: "demo", note: "未接続。同期は擬似処理です", lastCheckedAt: null },
