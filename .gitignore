@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.env*
+
+# GAS（X API PoC）は GitHub に置かない
+gas/
+.clasp.json

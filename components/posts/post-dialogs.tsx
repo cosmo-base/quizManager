@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
+import { buildXAnswerText, buildXQuestionText, X_POLL_DURATION_MINUTES, X_POLL_OPTIONS } from "@/lib/x-poll"
 import type { Platform, Question } from "@/lib/types"
 
 export function PostPreviewDialog({
@@ -36,28 +37,37 @@ export function PostPreviewDialog({
             <PlatformBadge platform={platform} />
             <span className="text-xs text-muted-foreground">{formatDate(q.plannedDate, { weekday: true })}</span>
           </div>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{q.text}</p>
           {platform === "x" ? (
-            <ul className="flex flex-col gap-1.5" aria-label="アンケート選択肢">
-              {q.choices.map((c) => (
-                <li key={c.label} className="rounded-full border border-primary/40 px-4 py-1.5 text-sm text-primary">
-                  {c.text}
-                </li>
-              ))}
-              <li className="text-xs text-muted-foreground">X標準アンケート ・ 投票期間24時間</li>
-            </ul>
+            <>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildXQuestionText(q)}</p>
+              <ul className="flex flex-col gap-1.5" aria-label="アンケート選択肢">
+                {X_POLL_OPTIONS.map((o) => (
+                  <li key={o} className="rounded-full border border-primary/40 px-4 py-1.5 text-sm text-primary">
+                    {o}
+                  </li>
+                ))}
+                <li className="text-xs text-muted-foreground">X標準アンケート ・ 投票期間{X_POLL_DURATION_MINUTES}分（翌05:50締切）・ 画像なし</li>
+              </ul>
+              <div className="flex flex-col gap-1 border-l-2 pl-3">
+                <span className="text-xs text-muted-foreground">翌朝のリプライ（正解・解説）</span>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildXAnswerText(q)}</p>
+              </div>
+            </>
           ) : (
-            <ul className="flex flex-col gap-1 text-sm" aria-label="リアクション選択肢">
-              {q.choices.map((c) => (
-                <li key={c.label} className="flex items-center gap-2">
-                  <span className="inline-flex size-6 items-center justify-center rounded border bg-background font-mono text-xs font-semibold">
-                    {c.label}
-                  </span>
-                  {c.text}
-                </li>
-              ))}
-              <li className="text-xs text-muted-foreground">リアクションで回答（Botのリアクションは集計対象外）</li>
-            </ul>
+            <>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{q.text}</p>
+              <ul className="flex flex-col gap-1 text-sm" aria-label="リアクション選択肢">
+                {q.choices.map((c) => (
+                  <li key={c.label} className="flex items-center gap-2">
+                    <span className="inline-flex size-6 items-center justify-center rounded border bg-background font-mono text-xs font-semibold">
+                      {c.label}
+                    </span>
+                    {c.text}
+                  </li>
+                ))}
+                <li className="text-xs text-muted-foreground">リアクションで回答（Botのリアクションは集計対象外）</li>
+              </ul>
+            </>
           )}
         </div>
         <DialogFooter>
