@@ -10,6 +10,7 @@ import { useQuiz } from "@/lib/store/quiz-store"
 import { QUESTION_STATUS } from "@/lib/constants"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { PlatformMark } from "@/components/shared/platform-badge"
+import { questionHref } from "@/lib/routes"
 
 export function GlobalSearch() {
   const [open, setOpen] = useState(false)
@@ -39,7 +40,7 @@ export function GlobalSearch() {
   const go = (id: string) => {
     setOpen(false)
     setQuery("")
-    router.push(`/questions/${id}`)
+    router.push(questionHref(id))
   }
 
   return (

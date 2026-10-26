@@ -10,6 +10,7 @@ import { weekday } from "@/lib/format"
 import { PlatformMark } from "@/components/shared/platform-badge"
 import type { Platform, PostJob } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { questionHref } from "@/lib/routes"
 
 function cellFor(job: PostJob | undefined) {
   if (!job) return { icon: CircleDashed, cls: "text-muted-foreground/50", label: "投稿なし" }
@@ -67,7 +68,7 @@ export function WeekPanel() {
                   return (
                     <td key={d} className="py-1.5" title={`${formatDate(d)}：${c.label}`}>
                       {job ? (
-                        <Link href={`/questions/${job.questionId}`} className="inline-flex rounded p-1 hover:bg-accent">
+                        <Link href={questionHref(job.questionId)} className="inline-flex rounded p-1 hover:bg-accent">
                           {content}
                         </Link>
                       ) : (

@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/format"
 import type { Question } from "@/lib/types"
 import { canSchedule } from "@/lib/validation"
 import { cn } from "@/lib/utils"
+import { questionHref } from "@/lib/routes"
 
 export function ScheduleQueue({
   questions,
@@ -41,7 +42,7 @@ export function ScheduleQueue({
                 <li key={q.id} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2 text-xs">
                     <PlatformMark platform={q.platform} />
-                    <Link href={`/questions/${q.id}`} className="font-mono text-primary hover:underline">
+                    <Link href={questionHref(q.id)} className="font-mono text-primary hover:underline">
                       {q.id}
                     </Link>
                     <span className="ml-auto tabular-nums text-muted-foreground">{formatDate(q.plannedDate, { weekday: true })}</span>
@@ -108,7 +109,7 @@ export function InstagramStock({
             {questions.map((q) => (
               <li key={q.id} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-2 text-xs">
-                  <Link href={`/questions/${q.id}`} className="font-mono text-primary hover:underline">
+                  <Link href={questionHref(q.id)} className="font-mono text-primary hover:underline">
                     {q.id}
                   </Link>
                   <span className="ml-auto text-muted-foreground">

@@ -1,5 +1,6 @@
 "use client"
 
+import { questionHref } from "@/lib/routes"
 import Link from "next/link"
 import { AlertTriangle, ExternalLink, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -102,7 +103,7 @@ export function PostTable({
                 <TableCell className="min-w-72 max-w-md whitespace-normal">
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <div className="flex items-center gap-2 text-xs">
-                      <Link href={`/questions/${j.questionId}`} className="font-mono text-primary hover:underline">
+                      <Link href={questionHref(j.questionId)} className="font-mono text-primary hover:underline">
                         {j.questionId}
                       </Link>
                       <span className="text-muted-foreground">v{j.questionVersion}</span>

@@ -17,6 +17,7 @@ import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
 import type { Question, QualityScore } from "@/lib/types"
 import { can } from "@/lib/validation"
 import { cn } from "@/lib/utils"
+import { questionHref } from "@/lib/routes"
 
 const QUALITY_LABEL: Record<keyof QualityScore, string> = {
   interest: "興味喚起",
@@ -70,7 +71,7 @@ export function ReviewPanel({ q }: { q: Question }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <PlatformMark platform={q.platform} />
-        <Link href={`/questions/${q.id}`} className="font-mono text-sm text-primary hover:underline">
+        <Link href={questionHref(q.id)} className="font-mono text-sm text-primary hover:underline">
           {q.id}
         </Link>
         <span className="text-xs text-muted-foreground">
@@ -239,7 +240,7 @@ export function ReviewPanel({ q }: { q: Question }) {
                   <li key={s.questionId} className="flex flex-col gap-0.5 rounded-md border px-3 py-2 text-sm">
                     <div className="flex items-center gap-2 text-xs">
                       <PlatformMark platform={s.platform} />
-                      <Link href={`/questions/${s.questionId}`} className="font-mono text-primary hover:underline">
+                      <Link href={questionHref(s.questionId)} className="font-mono text-primary hover:underline">
                         {s.questionId}
                       </Link>
                       {s.sameKnowledge && <StatusBadge label="同一知識" tone="warning" />}

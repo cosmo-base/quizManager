@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { questionHref } from "@/lib/routes"
+import { Suspense, useState } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Award,
   CalendarPlus,
@@ -39,8 +40,17 @@ import { can } from "@/lib/validation"
 
 type DialogKind = "edit" | "plan" | "reuse" | null
 
+// 静的書き出しでは useSearchParams を Suspense で包む必要がある
 export default function QuestionDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  return (
+    <Suspense>
+      <QuestionDetail />
+    </Suspense>
+  )
+}
+
+function QuestionDetail() {
+  const id = useSearchParams().get("id") ?? ""
   const router = useRouter()
   const { state, data, actions } = useQuiz()
   const categoryName = useCategoryName()
@@ -70,7 +80,7 @@ export default function QuestionDetailPage() {
 
   const duplicate = () => {
     const newId = actions.duplicateQuestion(q.id)
-    if (newId) router.push(`/questions/${newId}`)
+    if (newId) router.push(questionHref(newId))
   }
   const reverify = async () => {
     setVerifying(true)

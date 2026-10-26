@@ -572,10 +572,10 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
 ]
 
 export const MOCK_ACTIVITY: ActivityLog[] = [
-  { id: "A-1", at: "2026-10-25T06:00:02+09:00", actor: "自動投稿", action: "クイズを投稿（デモ記録）", target: "X / Q-2026-0146", href: "/questions/Q-2026-0146" },
-  { id: "A-2", at: "2026-10-25T06:00:01+09:00", actor: "自動投稿", action: "クイズを投稿（デモ記録）", target: "Discord / Q-2026-0151", href: "/questions/Q-2026-0151" },
-  { id: "A-3", at: "2026-10-25T05:55:00+09:00", actor: "自動投稿", action: "正解・解説を公開（デモ記録）", target: "Discord / Q-2026-0150", href: "/questions/Q-2026-0150" },
-  { id: "A-4", at: "2026-10-24T18:20:00+09:00", actor: "佐藤 美咲", action: "問題を承認", target: "Q-2026-0155", href: "/questions/Q-2026-0155" },
+  { id: "A-1", at: "2026-10-25T06:00:02+09:00", actor: "自動投稿", action: "クイズを投稿（デモ記録）", target: "X / Q-2026-0146", href: "/questions/view?id=Q-2026-0146" },
+  { id: "A-2", at: "2026-10-25T06:00:01+09:00", actor: "自動投稿", action: "クイズを投稿（デモ記録）", target: "Discord / Q-2026-0151", href: "/questions/view?id=Q-2026-0151" },
+  { id: "A-3", at: "2026-10-25T05:55:00+09:00", actor: "自動投稿", action: "正解・解説を公開（デモ記録）", target: "Discord / Q-2026-0150", href: "/questions/view?id=Q-2026-0150" },
+  { id: "A-4", at: "2026-10-24T18:20:00+09:00", actor: "佐藤 美咲", action: "問題を承認", target: "Q-2026-0155", href: "/questions/view?id=Q-2026-0155" },
   { id: "A-5", at: "2026-10-24T05:18:00+09:00", actor: "AI生成ジョブ", action: "毎日自動生成が完了（4件）", target: "GJ-2026-1024", href: "/generate" },
 ]
 

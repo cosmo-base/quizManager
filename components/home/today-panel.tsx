@@ -10,6 +10,7 @@ import { PLAN_STATUS, POST_STATUS, RESPONSE_STATUS } from "@/lib/constants"
 import { PlatformBadge } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { EmptyState } from "@/components/shared/states"
+import { questionHref } from "@/lib/routes"
 
 export function TodayPanel() {
   const { data } = useQuiz()
@@ -47,7 +48,7 @@ export function TodayPanel() {
                     </span>
                   </div>
                   {q ? (
-                    <Link href={`/questions/${q.id}`} className="line-clamp-2 text-sm leading-relaxed hover:underline">
+                    <Link href={questionHref(q.id)} className="line-clamp-2 text-sm leading-relaxed hover:underline">
                       <span className="mr-2 font-mono text-xs text-muted-foreground">{q.id}</span>
                       {q.text}
                     </Link>
@@ -88,7 +89,7 @@ export function YesterdayPanel() {
                   <div className="flex flex-wrap items-center gap-2">
                     <PlatformBadge platform={j.platform} />
                     <StatusBadge {...RESPONSE_STATUS[j.responseStatus]} />
-                    <Link href={`/questions/${j.questionId}`} className="ml-auto font-mono text-xs text-muted-foreground hover:underline">
+                    <Link href={questionHref(j.questionId)} className="ml-auto font-mono text-xs text-muted-foreground hover:underline">
                       {j.questionId}
                     </Link>
                   </div>
