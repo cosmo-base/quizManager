@@ -1,0 +1,194 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
+import {
+  Award,
+  CalendarPlus,
+  ChevronLeft,
+  Copy,
+  Download,
+  ImageIcon,
+  MoreHorizontal,
+  Pencil,
+  RefreshCw,
+  Repeat,
+  ShieldCheck,
+  Sparkles,
+  WandSparkles,
+} from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { PlatformMark } from "@/components/shared/platform-badge"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { EmptyState, SampleTag } from "@/components/shared/states"
+import { QuestionDetailTabs } from "@/components/questions/detail-tabs"
+import { AssignToPlanDialog, EditQuestionDialog } from "@/components/questions/detail-dialogs"
+import { downloadCsv, questionsToCsv, reusableDate } from "@/components/questions/library-utils"
+import { CERT_STATUS, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
+import { DEMO_TODAY, formatDate } from "@/lib/format"
+import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
+import { can } from "@/lib/validation"
+
+type DialogKind = "edit" | "plan" | "reuse" | null
+
+export default function QuestionDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const { state, data, actions } = useQuiz()
+  const categoryName = useCategoryName()
+  const [dialog, setDialog] = useState<DialogKind>(null)
+  const [verifying, setVerifying] = useState(false)
+
+  const q = data.questions.find((x) => x.id === id)
+  if (!q) {
+    return (
+      <EmptyState
+        title="問題が見つかりません"
+        description={`問題ID「${id}」は存在しないか、削除されました`}
+        action={
+          <Link href="/questions" className={buttonVariants({ variant: "outline" })}>
+            ライブラリへ戻る
+          </Link>
+        }
+      />
+    )
+  }
+
+  const role = state.role
+  const canEdit = can(role, "edit")
+  const canPlan = can(role, "plan")
+  const canFix = canEdit || can(role, "approve")
+  const reuseFrom = reusableDate(q, state.settings.rules)
+
+  const duplicate = () => {
+    const newId = actions.duplicateQuestion(q.id)
+    if (newId) router.push(`/questions/${newId}`)
+  }
+  const reverify = async () => {
+    setVerifying(true)
+    try {
+      await actions.reverify(q.id)
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-4">
+        <Link href="/questions" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="size-4" aria-hidden />
+          問題ライブラリ
+        </Link>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <PlatformMark platform={q.platform} />
+              <span className="font-mono text-sm text-muted-foreground">{q.id}</span>
+              <StatusBadge {...QUESTION_STATUS[q.status]} />
+              <StatusBadge {...FACTCHECK_STATUS[q.factCheck.status]} />
+              {q.certification !== "none" && <StatusBadge {...CERT_STATUS[q.certification]} />}
+              {q.isSample && <SampleTag />}
+            </div>
+            <h1 className="text-xl leading-snug font-semibold text-balance">{q.text}</h1>
+            <p className="text-sm text-muted-foreground">
+              {categoryName(q.categoryId)} ・ {q.plannedDate ? `出題日 ${formatDate(q.plannedDate)}` : "出題日未設定"}
+              {reuseFrom && ` ・ 再出題可能 ${reuseFrom}`}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setDialog("edit")} disabled={!canEdit}>
+              <Pencil />
+              編集
+            </Button>
+            <Button variant="outline" onClick={reverify} disabled={!canFix || verifying}>
+              <RefreshCw className={verifying ? "animate-spin" : undefined} />
+              {verifying ? "検証中…" : "再検証"}
+            </Button>
+            <Button onClick={() => setDialog("plan")} disabled={!canPlan || q.status !== "approved"}>
+              <CalendarPlus />
+              出題計画へ登録
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" size="icon" aria-label="その他の操作" />}>
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={duplicate} disabled={!canEdit}>
+                  <Copy />
+                  複製
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/generate?mode=single&platform=${q.platform}&similar=${q.id}`)}
+                  disabled={!can(role, "generate")}
+                >
+                  <WandSparkles />
+                  類似問題を生成
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDialog("reuse")} disabled={!canPlan || !reuseFrom}>
+                  <Repeat />
+                  再出題候補へ追加
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.regenerateImage(q.id)} disabled={!canFix}>
+                  <ImageIcon />
+                  画像を再生成
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => actions.setCertification(q.id, "candidate")}
+                  disabled={!canFix || q.certification === "candidate" || q.certification === "adopted"}
+                >
+                  <Award />
+                  検定候補に追加
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(`/analytics?question=${q.id}`)} disabled={!can(role, "analyze")}>
+                  <Sparkles />
+                  AI定性分析
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCsv(`${q.id}.csv`, questionsToCsv([q], categoryName))}>
+                  <Download />
+                  CSV出力
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        {q.status === "review" && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+            <ShieldCheck className="size-4 text-warning" aria-hidden />
+            <span>この問題は確認待ちです。承認キューで承認・差し戻しを行えます。</span>
+            <Link href={`/reviews?q=${q.id}`} className="ml-auto font-medium text-primary hover:underline">
+              承認キューを開く
+            </Link>
+          </div>
+        )}
+      </header>
+
+      <QuestionDetailTabs
+        q={q}
+        questions={data.questions}
+        postJobs={data.postJobs}
+        categoryName={categoryName}
+        rules={state.settings.rules}
+        today={DEMO_TODAY}
+      />
+
+      <EditQuestionDialog key={`edit-${q.updatedAt}`} q={q} open={dialog === "edit"} onOpenChange={(o) => setDialog(o ? "edit" : null)} />
+      <AssignToPlanDialog
+        key={`plan-${dialog}`}
+        q={q}
+        open={dialog === "plan" || dialog === "reuse"}
+        onOpenChange={(o) => !o && setDialog(null)}
+        reuseFrom={dialog === "reuse" ? reuseFrom : undefined}
+      />
+    </div>
+  )
+}
