@@ -4,7 +4,8 @@
 import type { GasAction, GasResponse } from "./gas-contract"
 import { NotConnectedError } from "./types"
 
-export const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL ?? ""
+// リポジトリ変数に貼り付けた値の前後の改行・空白で壊れないよう trim する
+export const GAS_URL = (process.env.NEXT_PUBLIC_GAS_URL ?? "").trim()
 
 let idToken: string | null = null
 
