@@ -1,4 +1,5 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
+import type { GasPostJob, GasQuestion, GasStatus, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
   scope: AIInsight["scope"]
@@ -10,14 +11,14 @@ export interface InsightRequest {
 /**
  * Backend contract used by the UI.
  * - demo: lib/services/mock-adapter.ts（擬似処理。外部へは一切送信しない）
- * - live: lib/services/live-adapter.ts（バックエンド担当者が実装する）
+ * - live: lib/services/live-adapter.ts（GAS Web アプリ）
  */
 export interface QuizBackend {
   readonly mode: "demo" | "live"
   /** 事実確認・正解一意性・出典照合などを再実行 */
   verifyQuestion(question: Question): Promise<FactCheck>
   /** X / Discord へ投稿。Instagram は休止中のため呼ばない */
-  publishPost(job: PostJob, question: Question): Promise<{ externalId: string; url: string; publishedAt: string }>
+  publishPost(job: PostJob, question: Question): Promise<{ externalId: string; url: string; publishedAt: string; dryRun?: boolean }>
   /** 公開状況が不明な投稿を照会。見つからない場合 found=false */
   checkPostStatus(job: PostJob): Promise<{ found: boolean; url: string | null; externalId: string | null }>
   revealAnswer(job: PostJob, question: Question): Promise<void>
@@ -25,6 +26,11 @@ export interface QuizBackend {
   syncToSheets(jobs: PostJob[]): Promise<{ rows: number }>
   runInsight(req: InsightRequest): Promise<Pick<AIInsight, "facts" | "hypotheses" | "improvements" | "verification" | "cautions">>
   testConnection(key: Integration["key"]): Promise<Integration["status"]>
+  // 以下は実APIモードのみ（正本の Sheets から読み書きする）
+  getStatus(): Promise<GasStatus>
+  listQuestions(): Promise<GasQuestion[]>
+  saveQuestion(input: SaveQuestionInput): Promise<GasQuestion>
+  listPostJobs(): Promise<GasPostJob[]>
 }
 
 export class NotConnectedError extends Error {

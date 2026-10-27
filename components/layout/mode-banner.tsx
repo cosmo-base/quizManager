@@ -36,9 +36,12 @@ export function ModeBanner() {
         <div className="flex items-center gap-2 border-b bg-muted px-4 py-1.5 text-xs text-muted-foreground md:px-8">
           <PlugZap className="size-3.5 shrink-0" aria-hidden />
           <span>
-            <strong className="font-semibold text-foreground">実APIモード</strong>：バックエンド未接続のため、データは表示されません。
+            <strong className="font-semibold text-foreground">実APIモード</strong>：
+            {state.liveStatus.loadedAt
+              ? `正本（Google Sheets）のデータを表示しています。${state.liveStatus.dryRun ? "ドライラン中（X には投稿しません）" : "本番投稿モード"}`
+              : "Google でログインすると、正本（Google Sheets）のデータを読み込みます。"}
           </span>
-          <Link href="/settings?tab=integrations" className="ml-auto underline underline-offset-2">接続状態を確認</Link>
+          <Link href="/settings?tab=data" className="ml-auto underline underline-offset-2">接続状態を確認</Link>
         </div>
       )}
     </div>

@@ -49,6 +49,9 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
+import type { SaveQuestionInput } from "@/lib/services/gas-contract"
+import { useGoogleAuth } from "@/lib/auth/google-auth"
+import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
 
 export interface AppData {
@@ -68,12 +71,20 @@ export interface AppData {
   categories: Category[]
 }
 
+/** 実APIモードの読み込み状態。dryRun は GAS の X_DRY_RUN（null は未取得） */
+export interface LiveStatus {
+  dryRun: boolean | null
+  loading: boolean
+  loadedAt: string | null
+}
+
 interface AppState {
   settings: SystemSettings
   role: Role
   userName: string
   demo: AppData
   live: AppData
+  liveStatus: LiveStatus
 }
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
@@ -138,9 +149,11 @@ function useQuizStoreValue() {
     userName: "山田 太一",
     demo: demoData(),
     live: liveData(),
+    liveStatus: { dryRun: null, loading: false, loadedAt: null },
   }))
   const stateRef = useRef(state)
   stateRef.current = state
+  const auth = useGoogleAuth()
 
   const data = state.settings.dataMode === "demo" ? state.demo : state.live
   const backend: QuizBackend = getBackend(state.settings.dataMode)
@@ -156,15 +169,16 @@ function useQuizStoreValue() {
   const isDemo = () => stateRef.current.settings.dataMode === "demo"
   const label = (msg: string) => (isDemo() ? `【デモ】${msg}` : msg)
 
-  const guard = useCallback((operation: string, permission?: Permission | Permission[]) => {
+  /** 権限を確認する。opts.live が無い操作は、実APIモードでは未対応として止める */
+  const guard = useCallback((operation: string, permission?: Permission | Permission[], opts?: { live?: boolean }) => {
     const s = stateRef.current
     const perms = permission ? (Array.isArray(permission) ? permission : [permission]) : []
     if (perms.length && !perms.some((p) => can(s.role, p))) {
       toast.error("権限がありません", { description: `${operation}には別の権限が必要です（現在：${s.role}）` })
       return false
     }
-    if (s.settings.dataMode === "live") {
-      toast.error(`${operation}：実APIが未接続です`, { description: "lib/services/live-adapter.ts を実装すると実行できます" })
+    if (s.settings.dataMode === "live" && !opts?.live) {
+      toast.error(`${operation}：実APIモードでは未対応です`, { description: "正本（GAS・Sheets）にまだつないでいない操作です。デモモードで試せます" })
       return false
     }
     return true
@@ -179,6 +193,114 @@ function useQuizStoreValue() {
       return null
     }
   }, [])
+
+  // ---------------- 実APIモード（GAS・正本の Sheets） ----------------
+  /** 問題・投稿の一覧と動作状態を GAS から読み直す */
+  const refreshLive = useCallback(async () => {
+    if (stateRef.current.settings.dataMode !== "live") return
+    setState((prev) => ({ ...prev, liveStatus: { ...prev.liveStatus, loading: true } }))
+    const res = await callBackend("正本の読み込み", async (b) => {
+      const loaded = await Promise.all([b.getStatus(), b.listQuestions(), b.listPostJobs()])
+      // GAS の版が古いなど、想定外の形なら画面のデータは書き換えない
+      if (typeof loaded[0]?.dryRun !== "boolean" || !Array.isArray(loaded[1]) || !Array.isArray(loaded[2])) {
+        throw new Error("GAS の応答が想定と異なります。GAS を最新のコードで「新しいバージョン」としてデプロイしてください")
+      }
+      return loaded
+    })
+    setState((prev) =>
+      produce(prev, (draft) => {
+        draft.liveStatus.loading = false
+        if (!res) return
+        const [status, gasQuestions, gasJobs] = res
+        const time = draft.settings.posting.defaultTime
+        const jobs = gasJobs.filter((j) => j.questionId).map((j) => toPostJob(j, time))
+        const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time)]
+        const responses = gasJobs.map(toResponseSnapshot).filter((r) => r !== null)
+        const categoryId = draft.live.categories[0]?.id ?? ""
+        draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses, categoryId))
+        draft.live.postJobs = allJobs
+        draft.liveStatus.dryRun = status.dryRun
+        draft.liveStatus.loadedAt = nowIso()
+      }),
+    )
+  }, [callBackend])
+
+  // ログインしたとき・実APIモードに切り替えたときに読み込む
+  useEffect(() => {
+    if (state.settings.dataMode === "live" && auth.email) void refreshLive()
+  }, [state.settings.dataMode, auth.email, refreshLive])
+
+  const dryRunNote = (dryRun?: boolean) => (dryRun ? "ドライラン：X には投稿していません（記録のみ）" : undefined)
+
+  /** 問題を正本に保存する（新規は ID を GAS が採番、既存は新しい版を追記） */
+  const saveLiveQuestion = async (input: SaveQuestionInput) => {
+    if (!guard("問題の保存", "edit", { live: true })) return null
+    const saved = await callBackend("問題の保存", (b) => b.saveQuestion(input))
+    if (!saved) return null
+    toast.success(`${saved.id} を保存しました（v${saved.version}）`)
+    await refreshLive()
+    return saved
+  }
+
+  /** 状態だけを変えて新しい版を保存する（承認・差し戻し・不採用） */
+  const setLiveQuestionStatus = (id: string, status: SaveQuestionInput["status"], note: string) => {
+    if (!guard("状態の変更", "approve", { live: true })) return false
+    const q = stateRef.current.live.questions.find((x) => x.id === id)
+    if (!q) return false
+    void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status, note })
+    return true
+  }
+
+  const livePostNow = async (jobId: string) => {
+    if (!guard("今すぐ投稿", "post", { live: true })) return
+    const s = stateRef.current
+    if (s.settings.emergencyStop) return void toast.error("緊急停止中のため投稿できません")
+    const job = s.live.postJobs.find((j) => j.id === jobId)
+    const q = s.live.questions.find((x) => x.id === job?.questionId)
+    if (!job || !q) return
+    if (job.status === "unknown") {
+      return void toast.error("公開状況が不明です", { description: "二重投稿を防ぐため、X 上で投稿の有無を確認してください。自動では再投稿しません" })
+    }
+    if (q.status !== "approved") return void toast.error("承認済みの問題だけ投稿できます")
+    // 予約・失敗からの投稿は、その時点の最新版（承認済み）を固定して送る
+    const version = q.versions[q.versions.length - 1].version
+    const res = await callBackend("投稿", (b) => b.publishPost({ ...job, questionVersion: version }, q))
+    await refreshLive()
+    if (res) toast.success(`${job.date} の問題を投稿しました（v${version}）`, { description: dryRunNote(res.dryRun) })
+  }
+
+  const liveRevealAnswer = async (jobId: string) => {
+    if (!guard("正解発表", "post", { live: true })) return
+    const s = stateRef.current
+    const job = s.live.postJobs.find((j) => j.id === jobId)
+    const q = s.live.questions.find((x) => x.id === job?.questionId)
+    if (!job || !q || job.status !== "posted") return
+    const res = await callBackend("正解発表", (b) => b.revealAnswer(job, q).then(() => true))
+    await refreshLive()
+    if (res) toast.success("正解・解説をリプライで公開しました", { description: dryRunNote(s.liveStatus.dryRun ?? undefined) })
+  }
+
+  const liveFetchResults = async (jobId: string) => {
+    if (!guard("結果の取得", "post", { live: true })) return
+    const s = stateRef.current
+    const job = s.live.postJobs.find((j) => j.id === jobId)
+    const q = s.live.questions.find((x) => x.id === job?.questionId)
+    if (!job || !q || job.status !== "posted") return
+    const snap = await callBackend("結果の取得", (b) => b.fetchResponses(job, q))
+    await refreshLive()
+    if (snap) toast.success(`回答結果を取得しました（${snap.finalized ? "確定" : "暫定"}）`, { description: `回答数 ${snap.responses ?? "未取得"}` })
+  }
+
+  const liveCheckPostStatus = async (jobId: string) => {
+    if (!guard("公開状況の確認", "post", { live: true })) return
+    const job = stateRef.current.live.postJobs.find((j) => j.id === jobId)
+    if (!job) return
+    const res = await callBackend("公開状況の確認", (b) => b.checkPostStatus(job))
+    if (!res) return
+    await refreshLive()
+    if (res.found) toast.success("投稿記録があります", { description: "再投稿は不要です" })
+    else toast.info("成功した投稿記録はありません", { description: "成否不明の場合は X 上で投稿の有無を確認してください" })
+  }
 
   const log = (d: Draft<AppData>, action: string, target: string, href?: string, actor?: string) => {
     d.activity.unshift({ id: uid("A"), at: nowIso(), actor: actor ?? stateRef.current.userName, action, target, href })
@@ -715,6 +837,7 @@ function useQuizStoreValue() {
   }
 
   const approve = (id: string, note = "") => {
+    if (!isDemo()) return setLiveQuestionStatus(id, "approved", note || "承認")
     if (!guard("承認", "approve")) return false
     const q = stateRef.current.demo.questions.find((x) => x.id === id)
     if (!q) return false
@@ -741,6 +864,7 @@ function useQuizStoreValue() {
   }
 
   const returnQuestion = (id: string, note: string) => {
+    if (!isDemo()) return void setLiveQuestionStatus(id, "returned", note)
     if (!guard("差し戻し", "approve")) return
     update((d) => {
       const q = d.questions.find((x) => x.id === id)
@@ -755,6 +879,7 @@ function useQuizStoreValue() {
   }
 
   const rejectQuestion = (id: string, note: string) => {
+    if (!isDemo()) return void setLiveQuestionStatus(id, "rejected", note)
     if (!guard("不採用", ["approve", "edit"])) return
     update((d) => {
       const q = d.questions.find((x) => x.id === id)
@@ -849,6 +974,10 @@ function useQuizStoreValue() {
 
   // ---------------- 投稿 ----------------
   const schedulePost = (questionId: string) => {
+    if (!isDemo()) {
+      toast.info("出題日を設定してください", { description: "実APIモードでは、承認済みで出題日がある X の問題が自動で予約一覧に並びます" })
+      return false
+    }
     if (!guard("投稿予約", "post")) return false
     const s = stateRef.current
     const q = s.demo.questions.find((x) => x.id === questionId)
@@ -881,6 +1010,7 @@ function useQuizStoreValue() {
   }
 
   const postNow = async (jobId: string) => {
+    if (!isDemo()) return livePostNow(jobId)
     if (!guard("今すぐ投稿", "post")) return
     const s = stateRef.current
     if (s.settings.emergencyStop) {
@@ -931,6 +1061,7 @@ function useQuizStoreValue() {
   }
 
   const checkPostStatus = async (jobId: string) => {
+    if (!isDemo()) return liveCheckPostStatus(jobId)
     if (!guard("公開状況の確認", "post")) return
     const job = stateRef.current.demo.postJobs.find((j) => j.id === jobId)
     if (!job) return
@@ -961,6 +1092,7 @@ function useQuizStoreValue() {
   }
 
   const revealAnswer = async (jobId: string) => {
+    if (!isDemo()) return liveRevealAnswer(jobId)
     if (!guard("正解発表", "post")) return
     const job = stateRef.current.demo.postJobs.find((j) => j.id === jobId)
     const q = stateRef.current.demo.questions.find((x) => x.id === job?.questionId)
@@ -994,6 +1126,7 @@ function useQuizStoreValue() {
   }
 
   const fetchResults = async (jobId: string) => {
+    if (!isDemo()) return liveFetchResults(jobId)
     if (!guard("結果の取得", "post")) return
     const job = stateRef.current.demo.postJobs.find((j) => j.id === jobId)
     const q = stateRef.current.demo.questions.find((x) => x.id === job?.questionId)
@@ -1151,7 +1284,7 @@ function useQuizStoreValue() {
       return
     }
     setState((prev) => produce(prev, (draft) => void (draft.settings.dataMode = mode)))
-    toast.info(mode === "demo" ? "デモモードに切り替えました" : "実APIモードに切り替えました", { description: mode === "demo" ? "サンプルデータを表示しています" : "バックエンド未接続のため、データは表示されません" })
+    toast.info(mode === "demo" ? "デモモードに切り替えました" : "実APIモードに切り替えました", { description: mode === "demo" ? "サンプルデータを表示しています" : "Google でログインすると、正本（Google Sheets）のデータを読み込みます" })
   }
 
   const toggleAutomation = () => {
@@ -1301,6 +1434,8 @@ function useQuizStoreValue() {
     updateImageTemplate,
     duplicateImageTemplate,
     resetDemo,
+    refreshLive,
+    saveLiveQuestion,
   }
 
   return { state, data, backendMode: backend.mode, actions, can: (p: Permission) => can(state.role, p) }

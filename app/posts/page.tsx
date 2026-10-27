@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { FlaskConical, RefreshCw } from "lucide-react"
+import { FlaskConical, RefreshCw, Send, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState, PermissionNote } from "@/components/shared/states"
@@ -35,6 +35,7 @@ type DialogState =
   | { kind: "cancel"; job: PostJob }
   | { kind: "recordManual"; job: PostJob }
   | { kind: "recordIg"; questionId: string }
+  | { kind: "confirmSend"; job: PostJob; action: "postNow" | "reveal" }
   | null
 
 export default function PostsPage() {
@@ -45,6 +46,8 @@ export default function PostsPage() {
   const [syncing, setSyncing] = useState(false)
 
   const canPost = can(state.role, "post")
+  const isLive = state.settings.dataMode === "live"
+  const { dryRun, loading } = state.liveStatus
   const questionMap = useMemo(() => new Map(data.questions.map((q) => [q.id, q])), [data.questions])
   const xIntegration = data.integrations.find((i) => i.key === "x")
 
@@ -79,13 +82,16 @@ export default function PostsPage() {
         setDialog({ kind: action, job })
         break
       case "postNow":
-        actions.postNow(job.id)
+        // 実APIモードは X に送るため、必ず確認してから実行する
+        if (isLive) setDialog({ kind: "confirmSend", job, action: "postNow" })
+        else actions.postNow(job.id)
         break
       case "check":
         actions.checkPostStatus(job.id)
         break
       case "reveal":
-        actions.revealAnswer(job.id)
+        if (isLive) setDialog({ kind: "confirmSend", job, action: "reveal" })
+        else actions.revealAnswer(job.id)
         break
       case "fetch":
         actions.fetchResults(job.id)
@@ -113,12 +119,38 @@ export default function PostsPage() {
         title="投稿管理"
         description={`X・Discordへの投稿予約と結果取得。原則 ${state.settings.posting.defaultTime}（日本時間）に投稿します。`}
         actions={
-          <Button variant="outline" onClick={sync} disabled={syncing || unsyncedCount === 0 || !canPost}>
-            <RefreshCw className={syncing ? "animate-spin" : undefined} />
-            Sheetsへ同期（{unsyncedCount}）
-          </Button>
+          isLive ? (
+            <Button variant="outline" onClick={() => actions.refreshLive()} disabled={loading}>
+              <RefreshCw className={loading ? "animate-spin" : undefined} />
+              正本から再読み込み
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={sync} disabled={syncing || unsyncedCount === 0 || !canPost}>
+              <RefreshCw className={syncing ? "animate-spin" : undefined} />
+              Sheetsへ同期（{unsyncedCount}）
+            </Button>
+          )
         }
       />
+
+      {isLive && dryRun !== null && (
+        <div
+          role="note"
+          className={
+            dryRun
+              ? "flex items-start gap-3 rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm"
+              : "flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm"
+          }
+        >
+          {dryRun ? <ShieldCheck className="mt-0.5 size-4 shrink-0 text-info" aria-hidden /> : <Send className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />}
+          <p className="leading-relaxed">
+            {dryRun
+              ? "ドライラン中です。投稿・正解発表を実行しても X には送らず、正本（Sheets）に記録だけ残します（GAS の X_DRY_RUN）。"
+              : "本番投稿モードです。「今すぐ投稿」「正解を発表」は運用中の X アカウントに実際に投稿されます。"}
+            承認済みで出題日がある X の問題が「予約済み」として並びます。
+          </p>
+        </div>
+      )}
 
       {!canPost && <PermissionNote role={state.role} need="投稿操作" />}
 
@@ -207,6 +239,36 @@ export default function PostsPage() {
               }}
             >
               取り消す
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={dialog?.kind === "confirmSend"} onOpenChange={(o) => !o && setDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dialog?.kind === "confirmSend" && dialog.action === "reveal" ? "正解・解説をリプライしますか？" : "X に問題を投稿しますか？"}</DialogTitle>
+            <DialogDescription>
+              {dryRun
+                ? "ドライラン中のため X には送らず、記録だけ残します。"
+                : "運用中の X アカウントに実際に投稿されます。取り消すには X 上で削除が必要です。"}
+              {activeJob && ` 対象：${activeJob.date} / ${activeJob.questionId}`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialog(null)}>
+              戻る
+            </Button>
+            <Button
+              variant={dryRun ? "default" : "destructive"}
+              onClick={() => {
+                if (dialog?.kind === "confirmSend") {
+                  if (dialog.action === "postNow") actions.postNow(dialog.job.id)
+                  else actions.revealAnswer(dialog.job.id)
+                }
+                setDialog(null)
+              }}
+            >
+              {dryRun ? "記録する（ドライラン）" : "投稿する"}
             </Button>
           </DialogFooter>
         </DialogContent>

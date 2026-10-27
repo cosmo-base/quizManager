@@ -1,21 +1,33 @@
-// 実APIモード用アダプター。
-// 各メソッドは GAS Web アプリへの POST（action 名は lib/services/gas-contract.ts）に置き換える。
-// 接続済み：testConnection。X 連携は GAS 側の X API PoC（OAuth 1.0a）の合格後に接続する。
+// 実APIモード用アダプター。GAS Web アプリへ POST する（action 名は lib/services/gas-contract.ts）。
+// 接続済み：問題の保存・一覧、X の出題・正解発表・結果取得・公開状況、接続テスト。
 // 未実装の処理は必ず NotConnectedError を投げ、UI上で成功を偽装しないこと。
-import type { Integration } from "@/lib/types"
+import type { Integration, PostJob } from "@/lib/types"
 import { callGas } from "./gas-client"
+import type { GasPostJob, GasQuestion, GasStatus, PostTarget, PublishPostResult } from "./gas-contract"
 import { NotConnectedError, type QuizBackend } from "./types"
 
 const notConnected = (operation: string, hint: string) => () => Promise.reject(new NotConnectedError(operation, hint))
 
+function target(job: PostJob): PostTarget {
+  if (job.platform === "instagram") throw new NotConnectedError("投稿", "Instagram は休止中です")
+  return { date: job.date, platform: job.platform }
+}
+
 export const liveBackend: QuizBackend = {
   mode: "live",
   verifyQuestion: notConnected("ファクトチェック", "GAS action=verifyQuestion（Gemini + 検索）"),
-  publishPost: notConnected("投稿", "GAS action=publishPost（X API：本文＋投票 1/2/3 ／ Discord Bot）"),
-  checkPostStatus: notConnected("公開状況の確認", "GAS action=checkPostStatus（投稿ログの日付×媒体で照会）"),
-  revealAnswer: notConnected("正解発表", "GAS action=revealAnswer（X：問題投稿へのリプライ）"),
-  fetchResponses: notConnected("回答結果の取得", "GAS action=fetchResponses（X：投票結果 poll.options）"),
-  syncToSheets: notConnected("Sheets同期", "GAS action=syncToSheets（Sheets が正本）"),
+  publishPost: (job) =>
+    callGas<PublishPostResult>("publishPost", { ...target(job), questionId: job.questionId, version: job.questionVersion }, "投稿"),
+  checkPostStatus: (job) => callGas("checkPostStatus", target(job), "公開状況の確認"),
+  revealAnswer: async (job) => {
+    await callGas("revealAnswer", target(job), "正解発表")
+  },
+  fetchResponses: (job) => callGas("fetchResponses", target(job), "回答結果の取得"),
+  syncToSheets: notConnected("Sheets同期", "実APIモードでは GAS が直接 Sheets に記録するため不要です"),
   runInsight: notConnected("AI定性分析", "GAS action=runInsight"),
   testConnection: async (key) => (await callGas<{ status: Integration["status"] }>("testConnection", { key }, "接続テスト")).status,
+  getStatus: () => callGas<GasStatus>("getStatus", {}, "状態の取得"),
+  listQuestions: () => callGas<GasQuestion[]>("listQuestions", {}, "問題の読み込み"),
+  saveQuestion: (input) => callGas<GasQuestion>("saveQuestion", input, "問題の保存"),
+  listPostJobs: () => callGas<GasPostJob[]>("listPostJobs", {}, "投稿の読み込み"),
 }

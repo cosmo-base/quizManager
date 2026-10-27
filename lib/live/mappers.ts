@@ -1,0 +1,102 @@
+// 実APIモード：GAS（正本の Sheets）から読んだデータを、画面で使う型に変換する。
+// 正本に無い項目（事実確認・品質スコア・画像など）は「未取得」を表す既定値にする。
+import { jstIso } from "@/lib/format"
+import type { GasPostJob, GasQuestion } from "@/lib/services/gas-contract"
+import type { PostJob, Question, ResponseSnapshot } from "@/lib/types"
+
+export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseSnapshot[], categoryId: string): Question {
+  const snapshot = { text: g.text, choices: g.choices, answer: g.answer, explanation: g.explanation }
+  const savedAt = g.savedAt ?? new Date(0).toISOString()
+  return {
+    id: g.id,
+    knowledgeId: g.id,
+    topic: "",
+    text: g.text,
+    choices: g.choices,
+    answer: g.answer,
+    explanation: g.explanation,
+    categoryId,
+    difficulty: "beginner",
+    platform: g.platform,
+    timeliness: "evergreen",
+    status: g.status,
+    plannedDate: g.plannedDate,
+    factCheck: { status: "pending", items: [], concerns: [], checkedAt: null, model: null },
+    duplicate: { level: "none", similar: [], reusableFrom: null },
+    quality: { interest: 0, answerability: 0, choiceValidity: 0, learning: 0, platformFit: 0 },
+    sources: [],
+    // 正本は全版を持つが、画面には最新版だけを渡す（version は実際の版番号）
+    versions: [{ version: g.version, hash: "", createdAt: savedAt, author: g.savedBy, summary: `v${g.version}（全 ${g.versionCount} 版）`, snapshot }],
+    confirmedVersion: g.status === "approved" || g.status === "scheduled" || g.status === "posted" ? g.version : null,
+    history: jobs
+      .filter((j) => j.questionId === g.id && j.status !== "scheduled")
+      .map((j) => ({ postJobId: j.id, platform: j.platform, publishedAt: j.publishedAt, externalId: j.externalId, url: j.url, status: j.status, version: j.questionVersion })),
+    responses: responses.filter((r) => jobs.some((j) => j.id === r.postJobId && j.questionId === g.id)),
+    imageStatus: "none",
+    imageVersion: null,
+    templateId: "",
+    autoApprovable: false,
+    autoApprovalBlockers: [],
+    certification: "none",
+    reviewHistory: [],
+    recheckBy: null,
+    createdAt: savedAt,
+    updatedAt: savedAt,
+    generatedBy: null,
+    isSample: false,
+  }
+}
+
+export function toPostJob(g: GasPostJob, defaultTime: string): PostJob {
+  return {
+    id: g.id,
+    questionId: g.questionId ?? "",
+    questionVersion: g.questionVersion ?? 0,
+    platform: g.platform,
+    date: g.date,
+    scheduledAt: jstIso(g.date, defaultTime),
+    publishedAt: g.publishedAt,
+    status: g.status,
+    url: g.url,
+    externalId: g.externalId,
+    responseStatus: g.response ? (g.response.finalized ? "finalized" : "provisional") : g.status === "posted" ? "collecting" : "not_started",
+    answerRevealed: g.answerRevealed,
+    error: g.error,
+    // 正本の Sheets に直接記録しているため、別途の同期は不要
+    syncStatus: "synced",
+  }
+}
+
+export function toResponseSnapshot(g: GasPostJob): ResponseSnapshot | null {
+  if (!g.response) return null
+  return { platform: g.platform, postJobId: g.id, impressions: null, clicks: null, ...g.response }
+}
+
+/**
+ * 承認済みで出題日がある X の問題のうち、まだ投稿記録がないものを「予約済み」の投稿として並べる。
+ * 実際の投稿は「今すぐ投稿」（publishPost）で行い、そのとき問題の最新版を固定する。
+ */
+export function scheduledJobsFor(questions: GasQuestion[], jobs: PostJob[], defaultTime: string): PostJob[] {
+  // 失敗した投稿も一覧に残っているので重ねない（再投稿はその行の「今すぐ投稿」から行う）
+  const taken = new Set(jobs.map((j) => j.id))
+  return questions
+    .filter((q) => q.platform === "x" && q.status === "approved" && q.plannedDate)
+    .map((q) => ({ q, id: `${q.plannedDate}:${q.platform}` }))
+    .filter(({ id }) => !taken.has(id))
+    .map(({ q, id }) => ({
+      id,
+      questionId: q.id,
+      questionVersion: q.version,
+      platform: "x" as const,
+      date: q.plannedDate!,
+      scheduledAt: jstIso(q.plannedDate!, defaultTime),
+      publishedAt: null,
+      status: "scheduled" as const,
+      url: null,
+      externalId: null,
+      responseStatus: "not_started" as const,
+      answerRevealed: false,
+      error: null,
+      syncStatus: "synced" as const,
+    }))
+}

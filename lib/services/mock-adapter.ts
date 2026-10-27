@@ -108,4 +108,10 @@ export const mockBackend: QuizBackend = {
     await wait(700)
     return "demo"
   },
+
+  // デモモードは画面内のサンプルデータを使うため、正本の読み書きは呼ばれない
+  getStatus: () => Promise.resolve({ dryRun: true }),
+  listQuestions: () => Promise.resolve([]),
+  saveQuestion: () => Promise.reject(new Error("デモモードでは正本に保存しません")),
+  listPostJobs: () => Promise.resolve([]),
 }

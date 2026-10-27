@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
-import { buildXAnswerText, buildXQuestionText, X_POLL_DURATION_MINUTES, X_POLL_OPTIONS } from "@/lib/x-poll"
+import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX } from "@/lib/x-poll"
 import type { Platform, Question } from "@/lib/types"
 
 export function PostPreviewDialog({
@@ -41,11 +41,16 @@ export function PostPreviewDialog({
             <>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildXQuestionText(q)}</p>
               <ul className="flex flex-col gap-1.5" aria-label="アンケート選択肢">
-                {X_POLL_OPTIONS.map((o) => (
+                {buildXPollOptions(q).map((o) => (
                   <li key={o} className="rounded-full border border-primary/40 px-4 py-1.5 text-sm text-primary">
                     {o}
                   </li>
                 ))}
+                {overlongXChoices(q).length > 0 && (
+                  <li role="alert" className="text-xs text-destructive">
+                    選択肢 {overlongXChoices(q).join("・")} が {X_POLL_OPTION_MAX} 文字（番号込み）を超えています。このままでは投稿できません
+                  </li>
+                )}
                 <li className="text-xs text-muted-foreground">X標準アンケート ・ 投票期間{X_POLL_DURATION_MINUTES}分（翌05:50締切）・ 画像なし</li>
               </ul>
               <div className="flex flex-col gap-1 border-l-2 pl-3">

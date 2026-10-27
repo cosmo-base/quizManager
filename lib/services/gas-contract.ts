@@ -1,17 +1,21 @@
 // GAS Web アプリとの通信契約（決定事項：ロジックは GAS、データの正本は Google Sheets）。
 // 管理画面は Google ログインの ID トークンを付けて POST し、GAS 側で検証・許可メールアドレスと照合する。
-// 実際の通信は X API PoC の合格後に live-adapter.ts へ実装する。
-import type { ChoiceLabel, Platform, ResponseSnapshot } from "@/lib/types"
+// GAS 側の実装：WebApp.gs（振り分け）・Questions.gs・Posting.gs
+import type { ChoiceLabel, Choice, Platform, PostStatus, QuestionStatus, ResponseSnapshot } from "@/lib/types"
 
 export type GasAction =
-  | "verifyQuestion"
+  | "testConnection"
+  | "getStatus"
+  | "listQuestions"
+  | "saveQuestion"
+  | "listPostJobs"
   | "publishPost"
-  | "checkPostStatus"
   | "revealAnswer"
   | "fetchResponses"
+  | "checkPostStatus"
+  | "verifyQuestion"
   | "syncToSheets"
   | "runInsight"
-  | "testConnection"
 
 export interface GasRequest<P = unknown> {
   action: GasAction
@@ -25,36 +29,71 @@ export type GasResponse<T> =
   /** outcome=unknown は成否不明。UI から自動で再実行しないこと */
   | { ok: false; outcome: "failed" | "unknown"; error: string }
 
-/** publishPost：X は本文＋投票（1/2/3・1430分）。冪等キーは「日付×媒体」 */
-export interface PublishPostPayload {
-  postJobId: string
-  questionId: string
-  questionVersion: number
-  platform: Exclude<Platform, "instagram">
+/** getStatus：X_DRY_RUN が有効なら X には投稿しない */
+export interface GasStatus {
+  dryRun: boolean
+}
+
+/** questions タブの最新版（保存のたびに版が 1 つ上がる） */
+export interface GasQuestion {
+  id: string
+  version: number
+  platform: Platform
+  plannedDate: string | null
+  status: QuestionStatus
+  text: string
+  choices: Choice[]
+  answer: ChoiceLabel
+  explanation: string
+  savedBy: string
+  savedAt: string | null
+  versionCount: number
+}
+
+/** saveQuestion：id なしで新規（ID は GAS が採番）、ありで新しい版を追記 */
+export interface SaveQuestionInput {
+  id?: string
+  text: string
+  choices: Choice[]
+  answer: ChoiceLabel
+  explanation: string
+  platform: Platform
+  plannedDate: string | null
+  status: QuestionStatus
+  note?: string
+}
+
+/** 投稿の対象（冪等キーは「日付:媒体:種別」） */
+export interface PostTarget {
   date: string
+  platform: Exclude<Platform, "instagram">
+}
+
+/** publishPost：X は本文（問題文）＋番号付きの投票（1430 分）。版を固定して投稿する */
+export interface PublishPostPayload extends PostTarget {
+  questionId: string
+  version: number
 }
 export interface PublishPostResult {
   externalId: string
   url: string
   publishedAt: string
+  dryRun: boolean
 }
 
-/** revealAnswer：問題投稿へのリプライとして正解・解説を投稿 */
-export interface RevealAnswerPayload {
-  postJobId: string
-  externalId: string
-  answer: ChoiceLabel
-}
-
-/** fetchResponses：X は GET /2/tweets/:id の poll（voting_status=closed で確定） */
-export interface FetchResponsesPayload {
-  postJobId: string
-  externalId: string
-}
-export type FetchResponsesResult = ResponseSnapshot
-
-export interface CheckPostStatusPayload {
-  postJobId: string
-  platform: Exclude<Platform, "instagram">
+/** listPostJobs：post_log と responses から求めた投稿の状態（日付×媒体ごと） */
+export interface GasPostJob {
+  id: string
   date: string
+  platform: Exclude<Platform, "instagram">
+  questionId: string | null
+  questionVersion: number | null
+  status: Extract<PostStatus, "draft" | "posted" | "failed" | "unknown">
+  publishedAt: string | null
+  externalId: string | null
+  url: string | null
+  answerRevealed: boolean
+  error: string | null
+  dryRun: boolean
+  response: Pick<ResponseSnapshot, "responses" | "correct" | "perChoice" | "finalized" | "collectedAt"> | null
 }

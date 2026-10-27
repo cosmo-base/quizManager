@@ -16,12 +16,13 @@ export function EmptyState({ title, description, action, icon: Icon = Inbox, cla
   )
 }
 
-export function LiveEmptyState({ what }: { what: string }) {
+export function LiveEmptyState({ what, description, action }: { what: string; description?: string; action?: React.ReactNode }) {
   return (
     <EmptyState
       icon={Database}
       title={`${what}を取得できません`}
-      description="実APIモードですが、バックエンド（Supabase）が未接続です。接続するとここに実データが表示されます。デモを試す場合は設定からデモモードに切り替えてください。"
+      description={description ?? "この画面はまだ正本（Google Sheets）に接続していません。デモを試す場合は設定からデモモードに切り替えてください。"}
+      action={action}
     />
   )
 }
