@@ -31,6 +31,9 @@ jobs:
       - run: pnpm build
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # リポジトリ変数（Settings → Secrets and variables → Actions → Variables）。未設定なら機能を出さない
+          NEXT_PUBLIC_GAS_URL: ${{ vars.GAS_WEB_APP_URL }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           NEXT_TELEMETRY_DISABLED: 1
       - uses: actions/upload-pages-artifact@v3
         with:
