@@ -1189,9 +1189,16 @@ function useQuizStoreValue() {
     if (!res) return
     update((d) => {
       const i = d.integrations.find((x) => x.key === key)
-      if (i) i.lastCheckedAt = nowIso()
+      if (!i) return
+      i.lastCheckedAt = nowIso()
+      if (!isDemo()) {
+        i.status = res
+        i.note = res === "connected" ? "接続テストで疎通を確認" : "接続テストで疎通を確認できませんでした"
+      }
     })
-    toast.info("デモモードのため接続テストは擬似応答です", { description: "実際の接続は確認していません" })
+    if (isDemo()) toast.info("デモモードのため接続テストは擬似応答です", { description: "実際の接続は確認していません" })
+    else if (res === "connected") toast.success("接続を確認しました")
+    else toast.warning("接続を確認できませんでした", { description: `状態：${res}` })
   }
 
   const setRole = (role: Role) => {

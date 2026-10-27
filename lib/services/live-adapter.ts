@@ -1,7 +1,9 @@
-// 実APIモード用アダプター（未実装）。
+// 実APIモード用アダプター。
 // 各メソッドは GAS Web アプリへの POST（action 名は lib/services/gas-contract.ts）に置き換える。
-// X 連携は GAS 側の X API PoC（OAuth 1.0a）の合格後に接続する。
+// 接続済み：testConnection。X 連携は GAS 側の X API PoC（OAuth 1.0a）の合格後に接続する。
 // 未実装の処理は必ず NotConnectedError を投げ、UI上で成功を偽装しないこと。
+import type { Integration } from "@/lib/types"
+import { callGas } from "./gas-client"
 import { NotConnectedError, type QuizBackend } from "./types"
 
 const notConnected = (operation: string, hint: string) => () => Promise.reject(new NotConnectedError(operation, hint))
@@ -15,5 +17,5 @@ export const liveBackend: QuizBackend = {
   fetchResponses: notConnected("回答結果の取得", "GAS action=fetchResponses（X：投票結果 poll.options）"),
   syncToSheets: notConnected("Sheets同期", "GAS action=syncToSheets（Sheets が正本）"),
   runInsight: notConnected("AI定性分析", "GAS action=runInsight"),
-  testConnection: notConnected("接続テスト", "GAS action=testConnection"),
+  testConnection: async (key) => (await callGas<{ status: Integration["status"] }>("testConnection", { key }, "接続テスト")).status,
 }

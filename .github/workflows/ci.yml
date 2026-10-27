@@ -1,0 +1,31 @@
+# PR ごとに型チェックとビルド（静的書き出し）を確認する
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # next.config の ignoreBuildErrors でビルドは型エラーを無視するため、型チェックは別に行う
+      - run: pnpm typecheck
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /quizManager
+          NEXT_TELEMETRY_DISABLED: 1
