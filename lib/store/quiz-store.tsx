@@ -925,7 +925,25 @@ function useQuizStoreValue() {
     })
   }
 
-  const duplicateQuestion = (id: string) => {
+  /** 実APIモード：同じ内容を新しい問題（下書き・出題日なし）として正本に保存し、新しい ID を返す */
+  const liveDuplicateQuestion = async (id: string) => {
+    const q = stateRef.current.live.questions.find((x) => x.id === id)
+    if (!q) return null
+    const saved = await saveLiveQuestion({
+      text: q.text,
+      choices: q.choices,
+      answer: q.answer,
+      explanation: q.explanation,
+      platform: q.platform,
+      plannedDate: null,
+      status: "draft",
+      note: `${id} から複製`,
+    })
+    return saved?.id ?? null
+  }
+
+  const duplicateQuestion = (id: string): string | null | Promise<string | null> => {
+    if (!isDemo()) return liveDuplicateQuestion(id)
     if (!guard("複製", "edit")) return null
     const s = stateRef.current
     const q = s.demo.questions.find((x) => x.id === id)
@@ -964,6 +982,13 @@ function useQuizStoreValue() {
   }
 
   const submitForReview = (id: string) => {
+    if (!isDemo()) {
+      const q = stateRef.current.live.questions.find((x) => x.id === id)
+      if (q && ["draft", "returned"].includes(q.status)) {
+        void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status: "review", note: "確認依頼" })
+      }
+      return
+    }
     if (!guard("確認依頼", "edit")) return
     update((d) => {
       const q = d.questions.find((x) => x.id === id)

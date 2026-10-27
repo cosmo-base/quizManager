@@ -77,9 +77,11 @@ function QuestionDetail() {
   const canPlan = can(role, "plan")
   const canFix = canEdit || can(role, "approve")
   const reuseFrom = reusableDate(q, state.settings.rules)
+  // 実APIモードで正本（GAS・Sheets）にまだつないでいない操作は押せないようにする
+  const isLive = state.settings.dataMode === "live"
 
-  const duplicate = () => {
-    const newId = actions.duplicateQuestion(q.id)
+  const duplicate = async () => {
+    const newId = await actions.duplicateQuestion(q.id)
     if (newId) router.push(questionHref(newId))
   }
   const reverify = async () => {
@@ -113,17 +115,22 @@ function QuestionDetail() {
               {categoryName(q.categoryId)} ・ {q.plannedDate ? `出題日 ${formatDate(q.plannedDate)}` : "出題日未設定"}
               {reuseFrom && ` ・ 再出題可能 ${reuseFrom}`}
             </p>
+            {isLive && (
+              <p className="text-xs text-muted-foreground">
+                実APIモードで使えるのは編集・複製・CSV出力と、確認・承認画面での状態の変更です。出題日を入れて承認すると投稿管理の予約に並びます（検証・画像・出題計画はまだ正本につないでいません）。
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => setDialog("edit")} disabled={!canEdit}>
               <Pencil />
               編集
             </Button>
-            <Button variant="outline" onClick={reverify} disabled={!canFix || verifying}>
+            <Button variant="outline" onClick={reverify} disabled={isLive || !canFix || verifying}>
               <RefreshCw className={verifying ? "animate-spin" : undefined} />
               {verifying ? "検証中…" : "再検証"}
             </Button>
-            <Button onClick={() => setDialog("plan")} disabled={!canPlan || q.status !== "approved"}>
+            <Button onClick={() => setDialog("plan")} disabled={isLive || !canPlan || q.status !== "approved"}>
               <CalendarPlus />
               出題計画へ登録
             </Button>
@@ -138,28 +145,28 @@ function QuestionDetail() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => router.push(`/generate?mode=single&platform=${q.platform}&similar=${q.id}`)}
-                  disabled={!can(role, "generate")}
+                  disabled={isLive || !can(role, "generate")}
                 >
                   <WandSparkles />
                   類似問題を生成
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setDialog("reuse")} disabled={!canPlan || !reuseFrom}>
+                <DropdownMenuItem onClick={() => setDialog("reuse")} disabled={isLive || !canPlan || !reuseFrom}>
                   <Repeat />
                   再出題候補へ追加
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.regenerateImage(q.id)} disabled={!canFix}>
+                <DropdownMenuItem onClick={() => actions.regenerateImage(q.id)} disabled={isLive || !canFix}>
                   <ImageIcon />
                   画像を再生成
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => actions.setCertification(q.id, "candidate")}
-                  disabled={!canFix || q.certification === "candidate" || q.certification === "adopted"}
+                  disabled={isLive || !canFix || q.certification === "candidate" || q.certification === "adopted"}
                 >
                   <Award />
                   検定候補に追加
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push(`/analytics?question=${q.id}`)} disabled={!can(role, "analyze")}>
+                <DropdownMenuItem onClick={() => router.push(`/analytics?question=${q.id}`)} disabled={isLive || !can(role, "analyze")}>
                   <Sparkles />
                   AI定性分析
                 </DropdownMenuItem>
