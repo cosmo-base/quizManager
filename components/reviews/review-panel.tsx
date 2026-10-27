@@ -48,7 +48,9 @@ export function ReviewPanel({ q }: { q: Question }) {
 
   const canApprove = can(state.role, "approve")
   const canEdit = can(state.role, "edit")
-  const unverified = q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed"
+  // 実APIモードは事実確認をまだ正本につないでいないため、検証の有無で承認を止めない
+  const isLive = state.settings.dataMode === "live"
+  const unverified = !isLive && (q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed")
 
   const reverify = async () => {
     setVerifying(true)
@@ -78,7 +80,7 @@ export function ReviewPanel({ q }: { q: Question }) {
           {categoryName(q.categoryId)} ・ {DIFFICULTY_LABEL[q.difficulty]} ・ v{q.versions.length}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={!can(state.role, "generate")}>
+          <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={isLive || !can(state.role, "generate")}>
             <WandSparkles />
             別問題を生成
           </Button>
@@ -90,7 +92,7 @@ export function ReviewPanel({ q }: { q: Question }) {
             <Undo2 />
             差し戻し
           </Button>
-          <Button size="sm" variant="outline" onClick={reverify} disabled={verifying || (!canApprove && !canEdit)}>
+          <Button size="sm" variant="outline" onClick={reverify} disabled={isLive || verifying || (!canApprove && !canEdit)}>
             <RefreshCw className={verifying ? "animate-spin" : undefined} />
             再検証
           </Button>

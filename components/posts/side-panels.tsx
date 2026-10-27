@@ -17,10 +17,13 @@ export function ScheduleQueue({
   questions,
   disabled,
   onSchedule,
+  liveIssues,
 }: {
   questions: Question[]
   disabled: boolean
   onSchedule: (id: string) => void
+  /** 実APIモード：予約一覧に並ばない理由（承認済み＋出題日ありの X の問題は自動で並ぶため、予約ボタンは出さない） */
+  liveIssues?: (q: Question) => string[]
 }) {
   return (
     <Card>
@@ -37,7 +40,8 @@ export function ScheduleQueue({
         ) : (
           <ul className="flex flex-col divide-y">
             {questions.map((q) => {
-              const check = canSchedule(q)
+              const issues = liveIssues?.(q)
+              const check = issues ? { ok: false, reasons: issues.length ? issues : ["投稿管理の一覧を再読み込みしてください"] } : canSchedule(q)
               return (
                 <li key={q.id} className="flex flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2 text-xs">
@@ -54,7 +58,7 @@ export function ScheduleQueue({
                       投稿予約
                     </Button>
                   ) : (
-                    <p className="text-xs text-warning">予約不可：{check.reasons.join(" / ")}</p>
+                    <p className="text-xs text-warning">{issues ? "予約に並ばない理由" : "予約不可"}：{check.reasons.join(" / ")}</p>
                   )}
                 </li>
               )

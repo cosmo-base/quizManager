@@ -13,7 +13,7 @@ import { PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/componen
 import { formatTime } from "@/lib/format"
 import { useQuiz } from "@/lib/store/quiz-store"
 import type { PostJob, PostStatus } from "@/lib/types"
-import { can } from "@/lib/validation"
+import { can, liveScheduleIssues } from "@/lib/validation"
 
 type StatusFilter = "all" | "attention" | PostStatus
 
@@ -195,7 +195,12 @@ export default function PostsPage() {
         </section>
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-1">
-          <ScheduleQueue questions={waiting} disabled={!canPost} onSchedule={actions.schedulePost} />
+          <ScheduleQueue
+            questions={waiting}
+            disabled={!canPost}
+            onSchedule={actions.schedulePost}
+            liveIssues={isLive ? (q) => liveScheduleIssues(q, data.postJobs) : undefined}
+          />
           <InstagramStock
             questions={igStock}
             minStock={state.settings.posting.instagramMinStock}

@@ -1,6 +1,7 @@
 import type { Platform, PostJob, Question, Role, SystemSettings } from "@/lib/types"
 import { addMonths } from "@/lib/format"
 import { PLATFORM_LABEL, PLATFORM_TEXT_LIMIT } from "@/lib/constants"
+import { overlongXChoices } from "@/lib/x-poll"
 
 export interface ReuseConflict {
   questionId: string
@@ -68,6 +69,24 @@ export function canSchedule(q: Question): { ok: boolean; reasons: string[] } {
   if (q.platform === "instagram") reasons.push("Instagramは投稿休止中です")
   if (!q.plannedDate) reasons.push("出題日が未設定です")
   return { ok: reasons.length === 0, reasons }
+}
+
+/**
+ * 実APIモードで、承認済みの問題が投稿の予約一覧に並ばない理由。
+ * 実APIモードは画像なし・事実確認は未接続のため、それらは条件にしない。
+ */
+export function liveScheduleIssues(q: Question, jobs: PostJob[]): string[] {
+  const reasons: string[] = []
+  if (q.status !== "approved") reasons.push("承認済みではありません")
+  if (q.platform !== "x") reasons.push("X 以外の自動投稿はまだ対応していません")
+  if (!q.plannedDate) reasons.push("出題日が未設定です（問題を編集して出題日を入れると予約に並びます）")
+  else {
+    const other = jobs.find((j) => j.id === `${q.plannedDate}:${q.platform}` && j.questionId !== q.id)
+    if (other) reasons.push(`この日はすでに ${other.questionId} の投稿があります（出題日を変えてください）`)
+  }
+  const tooLong = overlongXChoices(q)
+  if (q.platform === "x" && tooLong.length) reasons.push(`選択肢 ${tooLong.join("・")} が投票の上限（番号込み 25 文字）を超えています`)
+  return reasons
 }
 
 export type Permission =
