@@ -6,7 +6,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { setGasIdToken } from "@/lib/services/gas-client"
 
-export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ""
+// 前後に改行が混ざると Google が invalid_client を返すため trim する
+export const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim()
 const GIS_SRC = "https://accounts.google.com/gsi/client"
 
 interface GoogleIdApi {
