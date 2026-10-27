@@ -1,9 +1,9 @@
 // 実APIモード用アダプター。GAS Web アプリへ POST する（action 名は lib/services/gas-contract.ts）。
-// 接続済み：問題の保存・一覧、X の出題・正解発表・結果取得・公開状況、接続テスト。
+// 接続済み：問題の保存・一覧、X の出題・正解発表・結果取得・公開状況、自動投稿の状態・切り替え、接続テスト。
 // 未実装の処理は必ず NotConnectedError を投げ、UI上で成功を偽装しないこと。
 import type { Integration, PostJob } from "@/lib/types"
 import { callGas } from "./gas-client"
-import type { GasPostJob, GasQuestion, GasStatus, PostTarget, PublishPostResult } from "./gas-contract"
+import type { GasAutomationStatus, GasPostJob, GasQuestion, GasStatus, PostTarget, PublishPostResult } from "./gas-contract"
 import { NotConnectedError, type QuizBackend } from "./types"
 
 const notConnected = (operation: string, hint: string) => () => Promise.reject(new NotConnectedError(operation, hint))
@@ -30,4 +30,6 @@ export const liveBackend: QuizBackend = {
   listQuestions: () => callGas<GasQuestion[]>("listQuestions", {}, "問題の読み込み"),
   saveQuestion: (input) => callGas<GasQuestion>("saveQuestion", input, "問題の保存"),
   listPostJobs: () => callGas<GasPostJob[]>("listPostJobs", {}, "投稿の読み込み"),
+  getAutomationStatus: () => callGas<GasAutomationStatus>("getAutomationStatus", {}, "自動投稿の状態の取得"),
+  setAutomationEnabled: (enabled) => callGas<{ enabled: boolean }>("setAutomationEnabled", { enabled }, "自動投稿の切り替え"),
 }

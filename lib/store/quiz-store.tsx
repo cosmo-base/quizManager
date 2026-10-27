@@ -49,7 +49,7 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAutomationStatus, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
 import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
@@ -76,6 +76,8 @@ export interface LiveStatus {
   dryRun: boolean | null
   loading: boolean
   loadedAt: string | null
+  /** 毎朝の自動投稿の状態（null は未取得） */
+  automation: GasAutomationStatus | null
 }
 
 interface AppState {
@@ -149,7 +151,7 @@ function useQuizStoreValue() {
     userName: "山田 太一",
     demo: demoData(),
     live: liveData(),
-    liveStatus: { dryRun: null, loading: false, loadedAt: null },
+    liveStatus: { dryRun: null, loading: false, loadedAt: null, automation: null },
   }))
   const stateRef = useRef(state)
   stateRef.current = state
@@ -200,9 +202,9 @@ function useQuizStoreValue() {
     if (stateRef.current.settings.dataMode !== "live") return
     setState((prev) => ({ ...prev, liveStatus: { ...prev.liveStatus, loading: true } }))
     const res = await callBackend("正本の読み込み", async (b) => {
-      const loaded = await Promise.all([b.getStatus(), b.listQuestions(), b.listPostJobs()])
+      const loaded = await Promise.all([b.getStatus(), b.listQuestions(), b.listPostJobs(), b.getAutomationStatus()])
       // GAS の版が古いなど、想定外の形なら画面のデータは書き換えない
-      if (typeof loaded[0]?.dryRun !== "boolean" || !Array.isArray(loaded[1]) || !Array.isArray(loaded[2])) {
+      if (typeof loaded[0]?.dryRun !== "boolean" || !Array.isArray(loaded[1]) || !Array.isArray(loaded[2]) || !Array.isArray(loaded[3]?.recentLog)) {
         throw new Error("GAS の応答が想定と異なります。GAS を最新のコードで「新しいバージョン」としてデプロイしてください")
       }
       return loaded
@@ -211,7 +213,7 @@ function useQuizStoreValue() {
       produce(prev, (draft) => {
         draft.liveStatus.loading = false
         if (!res) return
-        const [status, gasQuestions, gasJobs] = res
+        const [status, gasQuestions, gasJobs, automation] = res
         const time = draft.settings.posting.defaultTime
         const jobs = gasJobs.filter((j) => j.questionId).map((j) => toPostJob(j, time))
         const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time)]
@@ -220,6 +222,7 @@ function useQuizStoreValue() {
         draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses, categoryId))
         draft.live.postJobs = allJobs
         draft.liveStatus.dryRun = status.dryRun
+        draft.liveStatus.automation = automation
         draft.liveStatus.loadedAt = nowIso()
       }),
     )
@@ -240,6 +243,15 @@ function useQuizStoreValue() {
     toast.success(`${saved.id} を保存しました（v${saved.version}）`)
     await refreshLive()
     return saved
+  }
+
+  /** 毎朝の自動投稿（GAS の AUTOMATION_ENABLED）を止める・再開する */
+  const setLiveAutomation = async (enabled: boolean) => {
+    if (!guard(enabled ? "自動投稿の再開" : "自動投稿の停止", "automation", { live: true })) return
+    const res = await callBackend("自動投稿の切り替え", (b) => b.setAutomationEnabled(enabled))
+    if (!res) return
+    toast.success(res.enabled ? "毎朝の自動投稿を再開しました" : "毎朝の自動投稿を停止しました", { description: res.enabled ? undefined : "06:00 の投稿・前日の確定は行われません。手動投稿はできます" })
+    await refreshLive()
   }
 
   /** 状態だけを変えて新しい版を保存する（承認・差し戻し・不採用） */
@@ -1461,6 +1473,7 @@ function useQuizStoreValue() {
     resetDemo,
     refreshLive,
     saveLiveQuestion,
+    setLiveAutomation,
   }
 
   return { state, data, backendMode: backend.mode, actions, can: (p: Permission) => can(state.role, p) }
