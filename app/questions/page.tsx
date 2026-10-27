@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Columns3, Download, LayoutGrid, Rows3 } from "lucide-react"
+import { Columns3, Download, LayoutGrid, Plus, Rows3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState, LiveEmptyState } from "@/components/shared/states"
 import { LibraryFilterBar } from "@/components/questions/library-filters"
+import { LiveQuestionDialog } from "@/components/questions/live-question-dialog"
 import { COLUMNS, LibraryCards, LibraryTable, type ColumnKey } from "@/components/questions/library-views"
 import {
   downloadCsv,
@@ -27,7 +28,8 @@ const PAGE_SIZE = 20
 const DEFAULT_HIDDEN: ColumnKey[] = ["answer", "reuse"]
 
 export default function QuestionsPage() {
-  const { state, data } = useQuiz()
+  const { state, data, can } = useQuiz()
+  const [creating, setCreating] = useState(false)
   const categoryName = useCategoryName()
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS)
   const [view, setView] = useState<"table" | "cards">("table")
@@ -68,7 +70,14 @@ export default function QuestionsPage() {
 
   const exportCsv = () => downloadCsv(`questions-${DEMO_TODAY}.csv`, questionsToCsv(results, categoryName))
 
-  const isLiveEmpty = state.settings.dataMode === "live" && data.questions.length === 0
+  const isLive = state.settings.dataMode === "live"
+  const isLiveEmpty = isLive && data.questions.length === 0
+  const createButton = isLive && (
+    <Button onClick={() => setCreating(true)} disabled={!can("edit")}>
+      <Plus />
+      問題を作成
+    </Button>
+  )
 
   return (
     <>
@@ -76,14 +85,25 @@ export default function QuestionsPage() {
         title="問題ライブラリ"
         description="新規生成・予約・出題済みの問題を横断して検索・管理します"
         actions={
-          <Button variant="outline" onClick={exportCsv} disabled={results.length === 0}>
-            <Download />
-            CSV出力（{results.length}件）
-          </Button>
+          <>
+            {createButton}
+            <Button variant="outline" onClick={exportCsv} disabled={results.length === 0}>
+              <Download />
+              CSV出力（{results.length}件）
+            </Button>
+          </>
         }
       />
+      {creating && <LiveQuestionDialog open onOpenChange={setCreating} />}
       {isLiveEmpty ? (
-        <LiveEmptyState what="問題" />
+        <LiveEmptyState
+          what="問題"
+          description={
+            state.liveStatus.loading
+              ? "正本（Google Sheets）から読み込んでいます…"
+              : "正本にまだ問題がないか、Google でログインしていません。ログインして「問題を作成」から登録してください。"
+          }
+        />
       ) : (
         <div className="flex flex-col gap-4">
           <LibraryFilterBar filters={filters} onChange={updateFilters} categories={data.categories} />

@@ -13,8 +13,16 @@ import { checkReuse, describeConflict } from "@/lib/validation"
 import { DEMO_TODAY, formatDate } from "@/lib/format"
 import type { ChoiceLabel, Question } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { overlongXChoices, X_POLL_OPTION_MAX } from "@/lib/x-poll"
+import { LiveQuestionDialog } from "./live-question-dialog"
 
-export function EditQuestionDialog({ q, open, onOpenChange }: { q: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
+/** 実APIモードでは正本（Sheets）に保存するダイアログを使う */
+export function EditQuestionDialog(props: { q: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const { state } = useQuiz()
+  return state.settings.dataMode === "live" ? <LiveQuestionDialog {...props} /> : <DemoEditQuestionDialog {...props} />
+}
+
+function DemoEditQuestionDialog({ q, open, onOpenChange }: { q: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { actions } = useQuiz()
   const [text, setText] = useState(q.text)
   const [choices, setChoices] = useState(q.choices.map((c) => c.text))
@@ -27,6 +35,10 @@ export function EditQuestionDialog({ q, open, onOpenChange }: { q: Question; ope
     e.preventDefault()
     if (!text.trim() || choices.some((c) => !c.trim()) || !explanation.trim()) return setError("問題文・選択肢・解説は必須です")
     if (new Set(choices.map((c) => c.trim())).size !== choices.length) return setError("選択肢が重複しています")
+    if (q.platform === "x") {
+      const tooLong = overlongXChoices({ choices: q.choices.map((c, i) => ({ label: c.label, text: choices[i] })) })
+      if (tooLong.length) return setError(`選択肢 ${tooLong.join("・")} が長すぎます（X の投票は番号込みで ${X_POLL_OPTION_MAX} 文字まで）`)
+    }
     if (!note.trim()) return setError("変更理由を入力してください")
     if (actions.editQuestion(q.id, { text: text.trim(), choices: choices.map((c) => c.trim()), answer, explanation: explanation.trim() }, note.trim())) {
       onOpenChange(false)
