@@ -1,7 +1,7 @@
 // GAS Web アプリとの通信契約（決定事項：ロジックは GAS、データの正本は Google Sheets）。
 // 管理画面は Google ログインの ID トークンを付けて POST し、GAS 側で検証・許可メールアドレスと照合する。
 // GAS 側の実装：WebApp.gs（振り分け）・Questions.gs・Posting.gs
-import type { ChoiceLabel, Choice, Platform, PostStatus, QuestionStatus, ResponseSnapshot } from "@/lib/types"
+import type { ChoiceLabel, Choice, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot } from "@/lib/types"
 
 export type GasAction =
   | "testConnection"
@@ -16,6 +16,7 @@ export type GasAction =
   | "getAutomationStatus"
   | "setAutomationEnabled"
   | "verifyQuestion"
+  | "generateQuestions"
   | "syncToSheets"
   | "runInsight"
 
@@ -38,6 +39,41 @@ export interface GasStatus {
   discordDryRun?: boolean
   /** Discord の Bot（DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID）が設定済みか */
   discordConfigured?: boolean
+  /** Gemini の設定と今月の使用量（古い GAS では無い） */
+  ai?: GasAiStatus
+}
+
+/** AI（Gemini）の状態。monthCostJpy・budgetJpy は有料枠に換算した概算 */
+export interface GasAiStatus {
+  configured: boolean
+  model: string
+  verifyModel: string
+  /** ファクトチェックで Google 検索を使うか（GEMINI_SEARCH） */
+  search: boolean
+  monthCostJpy: number
+  budgetJpy: number
+}
+
+/** verifyQuestion：その版のファクトチェック。sources は出典（記録用。投稿本文には入れない） */
+export interface GasFactCheck extends FactCheck {
+  version: number
+  sources: { title: string; url: string }[]
+}
+
+/** generateQuestions：Gemini で作り、検査を通ったものだけ下書きで保存する */
+export interface GenerateQuestionsInput {
+  platform: Exclude<Platform, "instagram">
+  count: number
+  theme?: string
+  difficulty?: "auto" | "beginner" | "intermediate" | "advanced"
+  instructions?: string
+  plannedDate?: string
+}
+export interface GenerateQuestionsResult {
+  saved: { id: string; version: number; text: string }[]
+  rejected: { text: string; reason: string }[]
+  model: string
+  estCostJpy: number
 }
 
 /** questions タブの最新版（保存のたびに版が 1 つ上がる） */
@@ -54,6 +90,8 @@ export interface GasQuestion {
   savedBy: string
   savedAt: string | null
   versionCount: number
+  /** この版のファクトチェック（未実施なら null。古い GAS では無い） */
+  factCheck?: GasFactCheck | null
 }
 
 /** saveQuestion：id なしで新規（ID は GAS が採番）、ありで新しい版を追記 */

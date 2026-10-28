@@ -79,6 +79,8 @@ function QuestionDetail() {
   const reuseFrom = reusableDate(q, state.settings.rules)
   // 実APIモードで正本（GAS・Sheets）にまだつないでいない操作は押せないようにする
   const isLive = state.settings.dataMode === "live"
+  // 実APIモードの再検証は Gemini のファクトチェック（GAS に GEMINI_API_KEY があるときだけ）
+  const aiReady = !!state.liveStatus.ai?.configured
 
   const duplicate = async () => {
     const newId = await actions.duplicateQuestion(q.id)
@@ -117,7 +119,8 @@ function QuestionDetail() {
             </p>
             {isLive && (
               <p className="text-xs text-muted-foreground">
-                実APIモードで使えるのは編集・複製・CSV出力と、確認・承認画面での状態の変更です。出題日を入れて承認すると投稿管理の予約に並び、出題日を空欄で承認すると予備問題になります（検証・画像・出題計画はまだ正本につないでいません）。
+                実APIモードで使えるのは編集・複製・CSV出力・再検証（Gemini のファクトチェック）と、確認・承認画面での状態の変更です。出題日を入れて承認すると投稿管理の予約に並び、出題日を空欄で承認すると予備問題になります（画像・出題計画はまだ正本につないでいません）。
+                {!aiReady && " Gemini が未設定のため、再検証は使えません（GAS の GEMINI_API_KEY）。"}
               </p>
             )}
           </div>
@@ -126,7 +129,7 @@ function QuestionDetail() {
               <Pencil />
               編集
             </Button>
-            <Button variant="outline" onClick={reverify} disabled={isLive || !canFix || verifying}>
+            <Button variant="outline" onClick={reverify} disabled={(isLive && !aiReady) || !canFix || verifying}>
               <RefreshCw className={verifying ? "animate-spin" : undefined} />
               {verifying ? "検証中…" : "再検証"}
             </Button>
