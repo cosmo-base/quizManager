@@ -1,18 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { BrainCircuit } from "lucide-react"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { formatDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/shared/page-header"
-import { EmptyState, LiveEmptyState } from "@/components/shared/states"
+import { EmptyState } from "@/components/shared/states"
 import { InsightForm, SCOPE_LABEL } from "@/components/analytics/insight-form"
 import { InsightResult } from "@/components/analytics/insight-result"
 
 export default function AnalyticsPage() {
-  const { data, state } = useQuiz()
+  const { data, state, actions } = useQuiz()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const live = state.settings.dataMode === "live"
+  // 実APIモード：開いたときに正本の分析履歴を読む
+  useEffect(() => {
+    if (live && state.liveStatus.me) void actions.loadLiveInsights()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, state.liveStatus.me?.email])
   const selected = data.insights.find((i) => i.id === selectedId) ?? data.insights[0]
 
   return (
@@ -57,8 +63,8 @@ export default function AnalyticsPage() {
         <div>
           {selected ? (
             <InsightResult insight={selected} />
-          ) : state.settings.dataMode === "live" ? (
-            <LiveEmptyState what="分析結果" />
+          ) : live ? (
+            <EmptyState icon={BrainCircuit} title="分析結果はまだありません" description={state.liveStatus.ai?.configured ? "左のフォームから分析対象を選んで実行してください（Gemini を使います）。" : "Gemini が未設定です（GAS の GEMINI_API_KEY）。"} />
           ) : (
             <EmptyState icon={BrainCircuit} title="分析結果はまだありません" description="左のフォームから分析対象を選んで実行してください。" />
           )}

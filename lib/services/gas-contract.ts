@@ -17,6 +17,7 @@ export type GasAction =
   | "setAutomationEnabled"
   | "verifyQuestion"
   | "generateQuestions"
+  | "listInsights"
   | "getMe"
   | "requestRole"
   | "listUsers"

@@ -25,7 +25,10 @@ export interface QuizBackend {
   revealAnswer(job: PostJob, question: Question): Promise<void>
   fetchResponses(job: PostJob, question: Question): Promise<ResponseSnapshot>
   syncToSheets(jobs: PostJob[]): Promise<{ rows: number }>
-  runInsight(req: InsightRequest): Promise<Pick<AIInsight, "facts" | "hypotheses" | "improvements" | "verification" | "cautions">>
+  /** 実APIモードは記録済みの分析（id・作成日時などを含む）を返す */
+  runInsight(req: InsightRequest): Promise<Pick<AIInsight, "facts" | "hypotheses" | "improvements" | "verification" | "cautions"> & Partial<AIInsight>>
+  /** 過去の分析（新しい順）。実APIモードのみ */
+  listInsights(): Promise<AIInsight[]>
   testConnection(key: Integration["key"]): Promise<Integration["status"]>
   // 以下は実APIモードのみ（正本の Sheets から読み書きする）
   getStatus(): Promise<GasStatus>

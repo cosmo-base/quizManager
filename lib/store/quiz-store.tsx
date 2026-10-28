@@ -1396,7 +1396,22 @@ function useQuizStoreValue() {
   }
 
   // ---------------- 分析 ----------------
+  /** 実APIモード：過去の分析を正本から読む */
+  const loadLiveInsights = useCallback(async () => {
+    const list = await callBackend("分析履歴の取得", (b) => b.listInsights())
+    if (list) setState((prev) => produce(prev, (draft) => void (draft.live.insights = list)))
+  }, [callBackend])
+
   const runInsight = async (scope: AIInsight["scope"], targetLabel: string, questionIds: string[], model: string) => {
+    if (!isDemo()) {
+      // Gemini で分析し、正本の insights タブに記録する（モデルは GAS の設定）
+      if (!guard("AI定性分析", "analyze", { live: true })) return null
+      const res = await callBackend("AI定性分析", (b) => b.runInsight({ scope, targetLabel, questionIds, model }))
+      if (!res?.id) return null
+      await loadLiveInsights()
+      toast.success("分析が完了しました", { description: "結果は出題ルールへ自動反映されません" })
+      return res.id
+    }
     if (!guard("AI定性分析", "analyze")) return null
     const id = `AI-${Date.now().toString().slice(-6)}`
     update((d) => {
@@ -1593,6 +1608,7 @@ function useQuizStoreValue() {
     reschedulePost,
     recordInstagramPost,
     runInsight,
+    loadLiveInsights,
     approveInsightRule,
     updateSettings,
     setDataMode,
