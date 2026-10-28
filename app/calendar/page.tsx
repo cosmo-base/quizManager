@@ -5,11 +5,11 @@ import { CalendarCog, ChevronLeft, ChevronRight, ListChecks, X } from "lucide-re
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/components/shared/page-header"
-import { LiveEmptyState } from "@/components/shared/states"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { addDays, addMonths, DEMO_TODAY, formatDate, startOfWeek } from "@/lib/format"
 import { ListView, MonthView, WeekView } from "@/components/calendar/calendar-views"
 import { DaySheet } from "@/components/calendar/day-sheet"
+import { LiveCalendar } from "@/components/calendar/live-calendar"
 import { BulkSetDialog, TemplateDialog } from "@/components/calendar/plan-dialogs"
 
 type View = "month" | "week" | "list"
@@ -45,14 +45,15 @@ export default function CalendarPage() {
   }
 
   const ViewComp = view === "month" ? MonthView : view === "week" ? WeekView : ListView
+  const live = state.settings.dataMode === "live"
 
   return (
     <>
       <PageHeader
         title="出題計画"
-        description="日付ごとの出題条件を管理します。枠をドラッグすると別の日へ移動できます"
+        description={live ? "出題日が入った問題と投稿の記録を日付ごとに表示します。空いている日には予備問題を割り当てられます" : "日付ごとの出題条件を管理します。枠をドラッグすると別の日へ移動できます"}
         actions={
-          <>
+          live ? undefined : <>
             <Button variant="outline" onClick={() => setTplOpen(true)}>
               <CalendarCog className="size-4" aria-hidden />
               週間テンプレート
@@ -67,8 +68,8 @@ export default function CalendarPage() {
         }
       />
 
-      {state.settings.dataMode === "live" ? (
-        <LiveEmptyState what="出題計画" />
+      {live ? (
+        <LiveCalendar />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">

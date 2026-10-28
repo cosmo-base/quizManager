@@ -361,6 +361,23 @@ function useQuizStoreValue() {
     await refreshLive()
   }
 
+  /**
+   * 出題日を変える（出題計画）。承認済みの問題に日付を入れると予約、空にすると予備に戻る。
+   * 承認済みのまま保存するので、GAS では承認の権限が要る
+   */
+  const assignLiveDate = async (id: string, date: string | null) => {
+    if (!guard(date ? "出題日の割り当て" : "予備に戻す", "approve", { live: true })) return false
+    const q = stateRef.current.live.questions.find((x) => x.id === id)
+    if (!q) return false
+    const saved = await callBackend("出題日の変更", (b) =>
+      b.saveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: date, status: "approved", note: date ? `出題計画から ${date} に割り当て` : "出題計画から予備に戻す" }),
+    )
+    if (!saved) return false
+    toast.success(date ? `${id} を ${date} に割り当てました` : `${id} を予備に戻しました`)
+    await refreshLive()
+    return true
+  }
+
   /** 状態だけを変えて新しい版を保存する（承認・差し戻し・不採用） */
   const setLiveQuestionStatus = (id: string, status: SaveQuestionInput["status"], note: string) => {
     if (!guard("状態の変更", "approve", { live: true })) return false
@@ -1595,6 +1612,7 @@ function useQuizStoreValue() {
     saveLiveQuestion,
     setLiveAutomation,
     liveGenerate,
+    assignLiveDate,
     requestLiveRole,
     loadLiveUsers,
     setLiveUserRole,
