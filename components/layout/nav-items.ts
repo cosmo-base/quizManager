@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, ClipboardCheck, Home, Library, Send, Settings, Sparkles, BrainCircuit } from "lucide-react"
+import { BarChart3, BookOpen, CalendarDays, ClipboardCheck, Home, Library, Send, Settings, Sparkles, BrainCircuit } from "lucide-react"
 
 export const NAV_ITEMS = [
   { href: "/", label: "ホーム", icon: Home },
@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { href: "/posts", label: "投稿管理", icon: Send },
   { href: "/analytics", label: "AI定性分析", icon: BrainCircuit },
   { href: "/kpi", label: "KPIダッシュボード", icon: BarChart3 },
+  { href: "/guide", label: "使い方", icon: BookOpen },
   { href: "/settings", label: "設定", icon: Settings },
 ] as const
 
