@@ -33,7 +33,7 @@ import { EmptyState, SampleTag } from "@/components/shared/states"
 import { QuestionDetailTabs } from "@/components/questions/detail-tabs"
 import { AssignToPlanDialog, EditQuestionDialog } from "@/components/questions/detail-dialogs"
 import { LiveAssignDateDialog } from "@/components/questions/live-assign-dialog"
-import { LiveSuggestion } from "@/components/questions/live-suggestion"
+import { LiveReturnNotice, LiveSuggestion } from "@/components/questions/live-suggestion"
 import { downloadCsv, questionsToCsv, reusableDate } from "@/components/questions/library-utils"
 import { CERT_STATUS, DIFFICULTY_LABEL, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
 import { DEMO_TODAY, formatDate } from "@/lib/format"
@@ -117,7 +117,7 @@ function QuestionDetail() {
             <h1 className="text-xl leading-snug font-semibold text-balance">{q.text}</h1>
             <p className="text-sm text-muted-foreground">
               {categoryName(q.categoryId)} ・ {q.difficulty === "auto" ? "難易度未設定" : DIFFICULTY_LABEL[q.difficulty]} ・ {q.plannedDate ? `出題日 ${formatDate(q.plannedDate)}` : "出題日未設定"}
-              {reuseFrom && ` ・ 再出題可能 ${reuseFrom}`}
+              {!isLive && reuseFrom && ` ・ 再出題可能 ${reuseFrom}`}
             </p>
             {isLive && (
               <p className="text-xs text-muted-foreground">
@@ -162,15 +162,7 @@ function QuestionDetail() {
                   <WandSparkles />
                   類似問題を生成
                 </DropdownMenuItem>
-                {isLive ? (
-                  // 本番：出題済みの問題は、別の日に出題日を入れ直すと再出題になる（画像・検定は使っていない）
-                  q.history.some((h) => h.status === "posted") && (
-                    <DropdownMenuItem onClick={() => setDialog("plan")} disabled={!can(role, "approve") || q.status !== "approved"}>
-                      <Repeat />
-                      別の日に再出題
-                    </DropdownMenuItem>
-                  )
-                ) : (
+                {isLive ? null : (
                   <>
                     <DropdownMenuItem onClick={() => setDialog("reuse")} disabled={!canPlan || !reuseFrom}>
                       <Repeat />
@@ -212,6 +204,7 @@ function QuestionDetail() {
           </div>
         )}
       </header>
+      {isLive && <LiveReturnNotice q={q} />}
       {isLive && <LiveSuggestion q={q} />}
 
       <QuestionDetailTabs

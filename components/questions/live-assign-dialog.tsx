@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PLATFORM_LABEL } from "@/lib/constants"
-import { addDays } from "@/lib/format"
+import { addDays, formatDate } from "@/lib/format"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useQuiz, useToday } from "@/lib/store/quiz-store"
 import type { Question } from "@/lib/types"
 
@@ -23,6 +24,9 @@ export function LiveAssignDateDialog({ q, open, onOpenChange }: { q: Question; o
     : []
   const posted = data.postJobs.some((j) => j.date === date && j.platform === q.platform && j.status === "posted")
   const tooEarly = !!date && date < min
+  // 再出題は基本的にしない：出題済みの問題に日付を入れるときは、確認してから保存する
+  const postedBefore = data.postJobs.filter((j) => j.questionId === q.id && (j.status === "posted" || j.status === "unknown")).map((j) => j.date).sort()
+  const [confirmRepost, setConfirmRepost] = useState(false)
 
   const save = async (d: string | null) => {
     setSaving(true)
@@ -45,6 +49,17 @@ export function LiveAssignDateDialog({ q, open, onOpenChange }: { q: Question; o
           <Input id="assign-date" type="date" min={min} value={date} onChange={(e) => setDate(e.target.value)} />
           {tooEarly && <p className="text-xs text-destructive">明日以降の日付を選んでください</p>}
           {posted && <p className="text-xs text-destructive">この日はすでに投稿済みです</p>}
+          {postedBefore.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-md border border-warning/50 bg-warning/10 p-3 text-xs">
+              <p>
+                この問題は {postedBefore.map((d) => formatDate(d)).join("・")} に出題済みです。再出題は基本的にしない方針です。
+              </p>
+              <label className="flex items-center gap-2">
+                <Checkbox checked={confirmRepost} onCheckedChange={(c) => setConfirmRepost(!!c)} />
+                それでも再出題する
+              </label>
+            </div>
+          )}
           {conflicts.length > 0 && (
             <p className="text-xs text-warning">
               この日にはすでに {conflicts.map((c) => c.id).join("・")} が承認済みで入っています。1 日 1 問にするため、どちらかを予備に戻してください。
@@ -63,7 +78,7 @@ export function LiveAssignDateDialog({ q, open, onOpenChange }: { q: Question; o
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               キャンセル
             </Button>
-            <Button disabled={saving || !date || tooEarly || posted} onClick={() => save(date)}>
+            <Button disabled={saving || !date || tooEarly || posted || (postedBefore.length > 0 && !confirmRepost)} onClick={() => save(date)}>
               {saving ? "保存中…" : "この日に出題"}
             </Button>
           </div>

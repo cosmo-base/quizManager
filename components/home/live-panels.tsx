@@ -136,6 +136,9 @@ export function useLiveNotices(): LiveNotice[] {
   data.postJobs
     .filter((j) => j.status === "failed" || j.status === "unknown")
     .forEach((j) => notices.push({ key: j.id, tone: j.status === "unknown" ? "danger" : "warning", text: `${formatDate(j.date)} の${j.platform === "x" ? " X" : " Discord"} の投稿が${j.status === "unknown" ? "成否不明です（投稿先で有無を確認してください）" : "失敗しています"}`, href: "/posts" }))
+  data.postJobs
+    .filter((j) => j.status === "scheduled" && j.plan && j.error)
+    .forEach((j) => notices.push({ key: `plan-${j.id}`, tone: "danger", text: `${formatDate(j.date)} の${j.platform === "x" ? " X" : " Discord"}：${j.error}`, href: "/posts" }))
   const review = data.questions.filter((q) => q.status === "review" || q.status === "returned").length
   if (review) notices.push({ key: "review", tone: "warning", text: `確認・承認待ちの問題が ${review} 件あります`, href: "/reviews" })
   if (auto && !auto.enabled) notices.push({ key: "auto-off", tone: "warning", text: "毎朝の自動投稿が停止中です", href: "/posts" })

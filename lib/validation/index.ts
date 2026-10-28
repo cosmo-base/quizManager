@@ -84,7 +84,14 @@ export function liveScheduleIssues(q: Question, jobs: PostJob[], discordConfigur
   if (!q.plannedDate) reasons.push("出題日が未設定です（問題を編集して出題日を入れると予約に並びます）")
   else {
     const other = jobs.find((j) => j.id === `${q.plannedDate}:${q.platform}` && j.questionId !== q.id)
-    if (other) reasons.push(`この日はすでに ${other.questionId} の投稿があります（出題日を変えてください）`)
+    if (other)
+      reasons.push(
+        other.status === "scheduled" && other.plan
+          ? `この日は 21:00 に ${other.questionId} を固定済みです（06:00 にはそちらを投稿します。出題日を変えてください）`
+          : other.status === "scheduled"
+            ? `この日はすでに ${other.questionId} が予約に並んでいます（1 日 1 問のため、出題日を変えてください）`
+            : `この日はすでに ${other.questionId} の投稿があります（出題日を変えてください）`,
+      )
   }
   const tooLong = overlongXChoices(q)
   if (q.platform === "x" && tooLong.length) reasons.push(`選択肢 ${tooLong.join("・")} が投票の上限（番号込み 25 文字）を超えています`)

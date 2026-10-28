@@ -20,6 +20,7 @@ export type GasAction =
   | "listInsights"
   | "recordManualPost"
   | "importQuestions"
+  | "getQuestionHistory"
   | "getMe"
   | "requestRole"
   | "listUsers"
@@ -148,6 +149,10 @@ export interface GasQuestion {
   /** 難易度・分類（未設定なら null。古い GAS では無い） */
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
+  /** 題材（「木星」など。未設定なら null） */
+  topic?: string | null
+  /** この版を保存したときのメモ（差し戻し・不採用の理由など） */
+  note?: string
   savedBy: string
   savedAt: string | null
   versionCount: number
@@ -169,6 +174,7 @@ export interface SaveQuestionInput {
   /** 省略すると前の版の値を引き継ぐ。null で未設定に戻す */
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
+  topic?: string | null
 }
 
 /** importQuestions：Excel・CSV から読み込んだ問題を下書きでまとめて登録する（1 回 100 問まで） */
@@ -184,6 +190,7 @@ export interface ImportQuestionInput {
   note?: string
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
+  topic?: string | null
 }
 export interface ImportQuestionsResult {
   saved: { ref: string; id: string; platform: Platform }[]

@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils"
 import { DISCORD_EMOJI } from "@/lib/discord-format"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
-import { questionError } from "@/lib/question-validate"
+import { questionError, TOPIC_MAX } from "@/lib/question-validate"
+import { SimilarWarning } from "@/components/questions/live-suggestion"
 
 const LABELS: ChoiceLabel[] = ["A", "B", "C"]
 
@@ -45,6 +46,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [note, setNote] = useState("")
   const [difficulty, setDifficulty] = useState<Difficulty>(q?.difficulty ?? "auto")
   const [category, setCategory] = useState(q?.categoryId || "none")
+  const [topic, setTopic] = useState(q?.topic ?? "")
   const categoryOptions = [{ value: "none", label: "未設定" }, ...data.categories.map((c) => ({ value: c.id, label: c.name }))]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -68,6 +70,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
       note: note.trim() || undefined,
       difficulty: difficulty === "auto" ? null : difficulty,
       category: category === "none" ? null : category,
+      topic: topic.trim() || null,
     })
     setSaving(false)
     if (saved) {
@@ -113,10 +116,15 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
               <Label htmlFor="lq-category">分類</Label>
               <SimpleSelect id="lq-category" value={category} onChange={setCategory} options={categoryOptions} />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lq-topic">題材</Label>
+              <Input id="lq-topic" value={topic} maxLength={TOPIC_MAX} onChange={(e) => setTopic(e.target.value)} placeholder="例：木星" />
+            </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lq-text">問題文</Label>
             <Textarea id="lq-text" value={text} onChange={(e) => setText(e.target.value)} rows={3} />
+            <SimilarWarning text={text} exclude={q?.id} />
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">

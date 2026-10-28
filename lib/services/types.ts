@@ -43,6 +43,8 @@ export interface QuizBackend {
   generateQuestions(input: GenerateQuestionsInput): Promise<GenerateQuestionsResult>
   /** Excel・CSV から読み込んだ問題を下書きでまとめて登録する */
   importQuestions(rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult>
+  /** 1 問の全版（古い順） */
+  getQuestionHistory(questionId: string): Promise<GasQuestion[]>
   /** ログインした人と、その権限 */
   getMe(): Promise<GasMe>
   requestRole(role: Role, note: string): Promise<{ pendingRequest: GasRoleRequest }>
