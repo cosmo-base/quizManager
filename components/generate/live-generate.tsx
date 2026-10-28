@@ -34,6 +34,8 @@ export function LiveGenerate({ initialPlatform, similarId }: { initialPlatform?:
   const [count, setCount] = useState("3")
   const [difficulty, setDifficulty] = useState<NonNullable<GenerateQuestionsInput["difficulty"]>>("auto")
   const [theme, setTheme] = useState("")
+  // 類似問題から来たときは、その問題の分類を引き継ぐ
+  const [category, setCategory] = useState(similar?.categoryId || "none")
   const [instructions, setInstructions] = useState(similar ? `次の問題と同じテーマで、別の内容の問題にする：${similar.text.slice(0, 100)}` : "")
   const [plannedDate, setPlannedDate] = useState("")
   const [running, setRunning] = useState(false)
@@ -52,6 +54,7 @@ export function LiveGenerate({ initialPlatform, similarId }: { initialPlatform?:
         count: Number(count),
         difficulty,
         theme: theme.trim() || undefined,
+        category: category === "none" ? undefined : category,
         instructions: instructions.trim() || undefined,
         plannedDate: plannedDate || undefined,
       })
@@ -101,6 +104,15 @@ export function LiveGenerate({ initialPlatform, similarId }: { initialPlatform?:
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lg-difficulty">難易度</Label>
                   <SimpleSelect id="lg-difficulty" value={difficulty} onChange={setDifficulty} options={DIFFICULTY_OPTIONS} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="lg-category">分類</Label>
+                  <SimpleSelect
+                    id="lg-category"
+                    value={category}
+                    onChange={setCategory}
+                    options={[{ value: "none", label: "指定しない（AI が付ける）" }, ...data.categories.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))]}
+                  />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lg-date">出題日（任意）</Label>

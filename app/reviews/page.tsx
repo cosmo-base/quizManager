@@ -55,7 +55,7 @@ function ReviewsContent() {
     <div className="flex flex-col gap-4">
       <PageHeader title="確認・承認" description="AIの検証結果と出典を見比べて、問題を承認・修正・差し戻します" />
 
-      {verificationMode && (
+      {verificationMode && state.settings.dataMode !== "live" && (
         <div role="status" className="flex items-center gap-3 rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm">
           <ShieldAlert className="size-4 shrink-0 text-info" aria-hidden />
           <span>検証モード中のため、自動承認と一括承認は無効です。すべての問題を人間が確認してください。</span>

@@ -15,7 +15,8 @@ import { questionHref } from "@/lib/routes"
 export function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const { data } = useQuiz()
+  const { data, state } = useQuiz()
+  const live = state.settings.dataMode === "live"
   const router = useRouter()
 
   useEffect(() => {
@@ -47,14 +48,14 @@ export function GlobalSearch() {
     <>
       <Button variant="outline" className="h-9 w-9 justify-start gap-2 px-0 text-muted-foreground sm:w-64 sm:px-3" onClick={() => setOpen(true)} aria-label="問題を検索">
         <Search className="mx-auto size-4 sm:mx-0" aria-hidden />
-        <span className="hidden flex-1 text-left sm:inline">問題ID・本文・知識IDで検索</span>
+        <span className="hidden flex-1 text-left sm:inline">{live ? "問題ID・本文で検索" : "問題ID・本文・知識IDで検索"}</span>
         <kbd className="hidden rounded border bg-muted px-1.5 font-mono text-[10px] sm:inline">⌘K</kbd>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="gap-3 sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>問題を検索</DialogTitle>
-            <DialogDescription>問題ID、知識ID、問題文、選択肢で検索できます</DialogDescription>
+            <DialogDescription>{live ? "問題ID、問題文、選択肢、題材で検索できます" : "問題ID、知識ID、問題文、選択肢で検索できます"}</DialogDescription>
           </DialogHeader>
           <Input
             autoFocus
