@@ -11,6 +11,7 @@ import { SimpleSelect } from "@/components/shared/simple-select"
 import { useQuiz } from "@/lib/store/quiz-store"
 import type { ChoiceLabel, Platform, Question, QuestionStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
 
 const LABELS: ChoiceLabel[] = ["A", "B", "C"]
@@ -19,7 +20,7 @@ const URL_PATTERN = /(https?:\/\/|www\.)|\b[a-z0-9][a-z0-9-]*\.(com|net|org|jp|i
 const STATUS_OPTIONS: { value: QuestionStatus; label: string }[] = [
   { value: "draft", label: "下書き" },
   { value: "review", label: "確認待ち" },
-  { value: "approved", label: "承認済み（出題日があれば予約に並ぶ）" },
+  { value: "approved", label: "承認済み（出題日があれば予約、空欄なら予備）" },
 ]
 
 export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -37,14 +38,16 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
 
   const optionLength = (i: number) => xPollOption(LABELS[i], choices[i]).length
   const tooLong = platform === "x" ? LABELS.filter((_, i) => optionLength(i) > X_POLL_OPTION_MAX) : []
+  const discordLength =
+    platform === "discord" ? overlongDiscordText({ text, choices: LABELS.map((label, i) => ({ label, text: choices[i] })), answer, explanation }) : null
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!text.trim() || choices.some((c) => !c.trim()) || !explanation.trim()) return setError("問題文・選択肢・解説は必須です")
     if (new Set(choices.map((c) => c.trim())).size !== choices.length) return setError("選択肢が重複しています")
     if (tooLong.length) return setError(`選択肢 ${tooLong.join("・")} が長すぎます（X の投票は番号込みで ${X_POLL_OPTION_MAX} 文字まで）`)
-    if (platform === "x" && [text, explanation, ...choices].some((v) => URL_PATTERN.test(v))) return setError("X の投稿には URL を入れられません（単価が約13倍になるため）")
-    if (status === "approved" && !plannedDate) return setError("承認済みにする場合は出題日を入れてください")
+    if (discordLength !== null) return setError(`Discord のメッセージが ${discordLength} 文字あります（${DISCORD_MESSAGE_MAX} 文字まで）`)
+    if ([text, explanation, ...choices].some((v) => URL_PATTERN.test(v))) return setError("投稿本文には URL を入れられません")
     setSaving(true)
     const saved = await actions.saveLiveQuestion({
       id: q?.id,
@@ -81,7 +84,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
                 onChange={setPlatform}
                 options={[
                   { value: "x", label: "X" },
-                  { value: "discord", label: "Discord（投稿は未対応）" },
+                  { value: "discord", label: "Discord" },
                 ]}
               />
             </div>
@@ -100,7 +103,13 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">
-              選択肢と正解{platform === "x" && <span className="ml-2 text-xs font-normal text-muted-foreground">X の投票には「1. 〜」の形で入ります（番号込み {X_POLL_OPTION_MAX} 文字まで）</span>}
+              選択肢と正解
+              {platform === "x" && <span className="ml-2 text-xs font-normal text-muted-foreground">X の投票には「1. 〜」の形で入ります（番号込み {X_POLL_OPTION_MAX} 文字まで）</span>}
+              {platform === "discord" && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  Discord では {LABELS.map((l) => DISCORD_EMOJI[l]).join("")} のリアクションで回答します（複数選んだ回答は無効）
+                </span>
+              )}
             </legend>
             {LABELS.map((label, i) => (
               <div key={label} className="flex items-center gap-2">
@@ -126,7 +135,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             ))}
           </fieldset>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lq-exp">解説（翌朝のリプライ）</Label>
+            <Label htmlFor="lq-exp">解説（翌朝の{platform === "discord" ? "返信" : "リプライ"}）</Label>
             <Textarea id="lq-exp" value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={3} />
           </div>
           {q && (

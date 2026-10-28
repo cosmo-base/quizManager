@@ -33,6 +33,10 @@ function LiveAutomationPill() {
   const automation = state.liveStatus.automation
   const enabled = automation?.enabled ?? null
   const label = enabled === null ? "自動投稿：未取得" : enabled ? "自動投稿：稼働中" : "自動投稿：停止中"
+  // 媒体ごとのドライラン（Discord は Bot が設定済みのときだけ対象）
+  const modes = automation ? [{ name: "X", dry: automation.dryRun }, ...(automation.discord ? [{ name: "Discord", dry: automation.discord.dryRun }] : [])] : []
+  const allDry = modes.length > 0 && modes.every((m) => m.dry)
+  const modeText = modes.map((m) => `${m.name} は${m.dry ? "ドライランのため投稿しません" : "本番投稿モードのため実際に投稿されます"}`).join("。")
   return (
     <>
       <Button
@@ -45,7 +49,7 @@ function LiveAutomationPill() {
       >
         <span className={cn("size-2 rounded-full", enabled === null ? "bg-muted-foreground" : enabled ? "bg-success" : "bg-warning")} aria-hidden />
         {label}
-        {automation?.dryRun && <span className="rounded bg-info/15 px-1 text-[11px] text-info">ドライラン</span>}
+        {allDry && <span className="rounded bg-info/15 px-1 text-[11px] text-info">ドライラン</span>}
         {enabled ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
       </Button>
       <Dialog open={confirming} onOpenChange={setConfirming}>
@@ -55,7 +59,7 @@ function LiveAutomationPill() {
             <DialogDescription>
               {enabled
                 ? "06:00 の投稿・正解発表、前日 18:00 の確認依頼と 21:00 の確定が止まります。管理画面からの手動投稿はできます。"
-                : `06:00 に前日の正解発表と当日の問題の投稿を自動で行います。${automation?.dryRun ? "現在はドライランのため X には投稿しません。" : "本番投稿モードのため X に実際に投稿されます。"}`}
+                : `06:00 に前日の正解発表と当日の問題の投稿を自動で行います。現在、${modeText}。`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

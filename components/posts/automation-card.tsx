@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/shared/status-badge"
 import type { Tone } from "@/lib/constants"
 import { formatDate, formatDateTime } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
-import type { GasAutomationStatus, GasPlan, GasPostState } from "@/lib/services/gas-contract"
+import type { GasAutomationStatus, GasPlan, GasPlatformAutomation, GasPostState } from "@/lib/services/gas-contract"
 import { cn } from "@/lib/utils"
 
 const RESULT_TONE: Record<string, Tone> = { done: "success", ok: "success", skip: "muted", error: "danger", notified: "warning" }
@@ -75,7 +75,42 @@ function PostLine({ label, state, empty }: { label: string; state: GasPostState 
   )
 }
 
+/** 媒体ごとの予約・投稿状態（X は最上位の項目、Discord は status.discord） */
+function PlatformSection({ name, s, status }: { name: string; s: GasPlatformAutomation; status: GasAutomationStatus }) {
+  return (
+    <section className="flex flex-col gap-2" aria-label={`${name} の自動投稿`}>
+      <h3 className="flex items-center gap-1.5 text-sm font-medium">
+        {name}
+        {s.dryRun && <StatusBadge tone="info" label="ドライラン" />}
+      </h3>
+      <dl className="flex flex-col gap-3">
+        <PlanLine label="明日" date={status.tomorrow} plan={s.tomorrowPlan} candidates={s.tomorrowCandidates} />
+        <PostLine label={`今日（${formatDate(status.today, { weekday: true })}）の投稿`} state={s.todayPost} empty="まだありません" />
+        <PostLine label="前日分の正解発表" state={s.yesterdayAnswer} empty="まだありません" />
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">予備問題（承認済み・出題日なしの {name} の問題）</dt>
+          <dd className={cn("text-sm tabular-nums", s.spareCount < status.spareMin && "text-warning")}>
+            {s.spareCount} 問{s.spareCount < status.spareMin && `（最低 ${status.spareMin} 問。不足しています）`}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
 export function AutomationCard({ status }: { status: GasAutomationStatus | null }) {
+  const x: GasPlatformAutomation | null = status
+    ? {
+        dryRun: status.dryRun,
+        todayPlan: status.todayPlan,
+        tomorrowPlan: status.tomorrowPlan,
+        todayCandidates: status.todayCandidates,
+        tomorrowCandidates: status.tomorrowCandidates,
+        todayPost: status.todayPost,
+        yesterdayAnswer: status.yesterdayAnswer,
+        spareCount: status.spareCount,
+      }
+    : null
   return (
     <Card>
       <CardHeader>
@@ -84,31 +119,23 @@ export function AutomationCard({ status }: { status: GasAutomationStatus | null 
             <Bot className="size-4" aria-hidden />
             自動投稿
           </span>
-          {status && (
-            <span className="flex items-center gap-1.5">
-              <StatusBadge tone={status.enabled ? "success" : "warning"} label={status.enabled ? "稼働中" : "停止中"} />
-              {status.dryRun && <StatusBadge tone="info" label="ドライラン" />}
-            </span>
-          )}
+          {status && <StatusBadge tone={status.enabled ? "success" : "warning"} label={status.enabled ? "稼働中" : "停止中"} />}
         </CardTitle>
-        <CardDescription>06:00 に前日の正解発表と当日の投稿。前日 18:00 に確認依頼、21:00 に翌日分を固定します。</CardDescription>
+        <CardDescription>
+          06:00 に前日の正解発表（Discord は直前に締切）と当日の投稿。前日 18:00 に確認依頼、21:00 に翌日分を固定します。
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {!status ? (
+        {!status || !x ? (
           <p className="text-sm text-muted-foreground">状態を取得できていません。Google でログインし、「正本から再読み込み」を押してください。</p>
         ) : (
           <>
-            <dl className="flex flex-col gap-3">
-              <PlanLine label="明日" date={status.tomorrow} plan={status.tomorrowPlan} candidates={status.tomorrowCandidates} />
-              <PostLine label={`今日（${formatDate(status.today, { weekday: true })}）の投稿`} state={status.todayPost} empty="まだありません" />
-              <PostLine label="前日分の正解発表" state={status.yesterdayAnswer} empty="まだありません" />
-              <div className="flex flex-col gap-0.5">
-                <dt className="text-xs text-muted-foreground">予備問題（承認済み・出題日なしの X の問題）</dt>
-                <dd className={cn("text-sm tabular-nums", status.spareCount < status.spareMin && "text-warning")}>
-                  {status.spareCount} 問{status.spareCount < status.spareMin && `（最低 ${status.spareMin} 問。不足しています）`}
-                </dd>
-              </div>
-            </dl>
+            <PlatformSection name="X" s={x} status={status} />
+            {status.discord ? (
+              <PlatformSection name="Discord" s={status.discord} status={status} />
+            ) : (
+              <p className="text-xs text-muted-foreground">Discord への出題は未設定です（GAS の DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID を設定すると対象になります）。</p>
+            )}
             {(!status.notifyConfigured || !status.discordConfigured) && (
               <p className="text-xs text-warning">
                 {!status.notifyConfigured && "通知メール（NOTIFY_EMAIL）が未設定です。"}

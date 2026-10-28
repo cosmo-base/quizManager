@@ -133,6 +133,8 @@ export interface ResponseSnapshot {
   reactionEvents?: number | null
   /** Discord: 有効回答者数（ユニーク） */
   uniqueVoters?: number | null
+  /** Discord: 複数の番号を選んで無効になった人数 */
+  invalidVoters?: number | null
   finalized: boolean
   collectedAt: string | null
 }

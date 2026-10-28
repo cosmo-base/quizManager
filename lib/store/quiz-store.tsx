@@ -71,9 +71,12 @@ export interface AppData {
   categories: Category[]
 }
 
-/** 実APIモードの読み込み状態。dryRun は GAS の X_DRY_RUN（null は未取得） */
+/** 実APIモードの読み込み状態。dryRun は GAS の X_DRY_RUN、discordDryRun は DISCORD_DRY_RUN（null は未取得） */
 export interface LiveStatus {
   dryRun: boolean | null
+  discordDryRun: boolean | null
+  /** Discord の Bot が設定済みか（古い GAS では false） */
+  discordConfigured: boolean
   loading: boolean
   loadedAt: string | null
   /** 毎朝の自動投稿の状態（null は未取得） */
@@ -151,7 +154,7 @@ function useQuizStoreValue() {
     userName: "山田 太一",
     demo: demoData(),
     live: liveData(),
-    liveStatus: { dryRun: null, loading: false, loadedAt: null, automation: null },
+    liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, loading: false, loadedAt: null, automation: null },
   }))
   const stateRef = useRef(state)
   stateRef.current = state
@@ -216,12 +219,16 @@ function useQuizStoreValue() {
         const [status, gasQuestions, gasJobs, automation] = res
         const time = draft.settings.posting.defaultTime
         const jobs = gasJobs.filter((j) => j.questionId).map((j) => toPostJob(j, time))
-        const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time)]
+        const discordConfigured = status.discordConfigured === true
+        // Discord は Bot が設定済みのときだけ予約に並べる（未設定なら「予約待ち」に理由を出す）
+        const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time, discordConfigured ? ["x", "discord"] : ["x"])]
         const responses = gasJobs.map(toResponseSnapshot).filter((r) => r !== null)
         const categoryId = draft.live.categories[0]?.id ?? ""
         draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses, categoryId))
         draft.live.postJobs = allJobs
         draft.liveStatus.dryRun = status.dryRun
+        draft.liveStatus.discordDryRun = typeof status.discordDryRun === "boolean" ? status.discordDryRun : null
+        draft.liveStatus.discordConfigured = discordConfigured
         draft.liveStatus.automation = automation
         draft.liveStatus.loadedAt = nowIso()
       }),
@@ -233,7 +240,8 @@ function useQuizStoreValue() {
     if (state.settings.dataMode === "live" && auth.email) void refreshLive()
   }, [state.settings.dataMode, auth.email, refreshLive])
 
-  const dryRunNote = (dryRun?: boolean) => (dryRun ? "ドライラン：X には投稿していません（記録のみ）" : undefined)
+  const dryRunNote = (platform: Platform, dryRun?: boolean | null) =>
+    dryRun ? `ドライラン：${PLATFORM_LABEL[platform]} には投稿していません（記録のみ）` : undefined
 
   /** 問題を正本に保存する（新規は ID を GAS が採番、既存は新しい版を追記） */
   const saveLiveQuestion = async (input: SaveQuestionInput) => {
@@ -271,14 +279,14 @@ function useQuizStoreValue() {
     const q = s.live.questions.find((x) => x.id === job?.questionId)
     if (!job || !q) return
     if (job.status === "unknown") {
-      return void toast.error("公開状況が不明です", { description: "二重投稿を防ぐため、X 上で投稿の有無を確認してください。自動では再投稿しません" })
+      return void toast.error("公開状況が不明です", { description: `二重投稿を防ぐため、${PLATFORM_LABEL[job.platform]} 上で投稿の有無を確認してください。自動では再投稿しません` })
     }
     if (q.status !== "approved") return void toast.error("承認済みの問題だけ投稿できます")
     // 予約・失敗からの投稿は、その時点の最新版（承認済み）を固定して送る
     const version = q.versions[q.versions.length - 1].version
     const res = await callBackend("投稿", (b) => b.publishPost({ ...job, questionVersion: version }, q))
     await refreshLive()
-    if (res) toast.success(`${job.date} の問題を投稿しました（v${version}）`, { description: dryRunNote(res.dryRun) })
+    if (res) toast.success(`${job.date} の問題を投稿しました（v${version}）`, { description: [dryRunNote(job.platform, res.dryRun), res.warning].filter(Boolean).join(" / ") || undefined })
   }
 
   const liveRevealAnswer = async (jobId: string) => {
@@ -289,7 +297,8 @@ function useQuizStoreValue() {
     if (!job || !q || job.status !== "posted") return
     const res = await callBackend("正解発表", (b) => b.revealAnswer(job, q).then(() => true))
     await refreshLive()
-    if (res) toast.success("正解・解説をリプライで公開しました", { description: dryRunNote(s.liveStatus.dryRun ?? undefined) })
+    const dry = job.platform === "discord" ? s.liveStatus.discordDryRun : s.liveStatus.dryRun
+    if (res) toast.success(job.platform === "discord" ? "締め切って、正解・解説を返信で公開しました" : "正解・解説をリプライで公開しました", { description: dryRunNote(job.platform, dry) })
   }
 
   const liveFetchResults = async (jobId: string) => {
@@ -311,7 +320,7 @@ function useQuizStoreValue() {
     if (!res) return
     await refreshLive()
     if (res.found) toast.success("投稿記録があります", { description: "再投稿は不要です" })
-    else toast.info("成功した投稿記録はありません", { description: "成否不明の場合は X 上で投稿の有無を確認してください" })
+    else toast.info("成功した投稿記録はありません", { description: `成否不明の場合は ${PLATFORM_LABEL[job.platform]} 上で投稿の有無を確認してください` })
   }
 
   const log = (d: Draft<AppData>, action: string, target: string, href?: string, actor?: string) => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { FlaskConical, OctagonX, PlugZap, Pause } from "lucide-react"
-import { useQuiz } from "@/lib/store/quiz-store"
+import { useQuiz, type LiveStatus } from "@/lib/store/quiz-store"
 
 export function ModeBanner() {
   const { state } = useQuiz()
@@ -38,7 +38,7 @@ export function ModeBanner() {
           <span>
             <strong className="font-semibold text-foreground">実APIモード</strong>：
             {state.liveStatus.loadedAt
-              ? `正本（Google Sheets）のデータを表示しています。${state.liveStatus.dryRun ? "ドライラン中（X には投稿しません）" : "本番投稿モード"}`
+              ? `正本（Google Sheets）のデータを表示しています。${liveModeText(state.liveStatus)}`
               : "Google でログインすると、正本（Google Sheets）のデータを読み込みます。"}
           </span>
           <Link href="/settings?tab=data" className="ml-auto underline underline-offset-2">接続状態を確認</Link>
@@ -46,4 +46,10 @@ export function ModeBanner() {
       )}
     </div>
   )
+}
+
+/** 媒体ごとの投稿モード（Discord は Bot が設定済みのときだけ表示） */
+function liveModeText(s: LiveStatus): string {
+  const mode = (dry: boolean | null) => (dry === false ? "本番投稿" : "ドライラン")
+  return s.discordConfigured ? `X：${mode(s.dryRun)}・Discord：${mode(s.discordDryRun)}` : s.dryRun ? "ドライラン中（X には投稿しません）" : "本番投稿モード"
 }

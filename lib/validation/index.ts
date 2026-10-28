@@ -2,6 +2,7 @@ import type { Platform, PostJob, Question, Role, SystemSettings } from "@/lib/ty
 import { addMonths } from "@/lib/format"
 import { PLATFORM_LABEL, PLATFORM_TEXT_LIMIT } from "@/lib/constants"
 import { overlongXChoices } from "@/lib/x-poll"
+import { overlongDiscordText } from "@/lib/discord-format"
 
 export interface ReuseConflict {
   questionId: string
@@ -75,10 +76,11 @@ export function canSchedule(q: Question): { ok: boolean; reasons: string[] } {
  * 実APIモードで、承認済みの問題が投稿の予約一覧に並ばない理由。
  * 実APIモードは画像なし・事実確認は未接続のため、それらは条件にしない。
  */
-export function liveScheduleIssues(q: Question, jobs: PostJob[]): string[] {
+export function liveScheduleIssues(q: Question, jobs: PostJob[], discordConfigured = false): string[] {
   const reasons: string[] = []
   if (q.status !== "approved") reasons.push("承認済みではありません")
-  if (q.platform !== "x") reasons.push("X 以外の自動投稿はまだ対応していません")
+  if (q.platform === "instagram") reasons.push("Instagram の投稿は休止中です")
+  if (q.platform === "discord" && !discordConfigured) reasons.push("Discord の Bot が未設定です（GAS の DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID）")
   if (!q.plannedDate) reasons.push("出題日が未設定です（問題を編集して出題日を入れると予約に並びます）")
   else {
     const other = jobs.find((j) => j.id === `${q.plannedDate}:${q.platform}` && j.questionId !== q.id)
@@ -86,6 +88,8 @@ export function liveScheduleIssues(q: Question, jobs: PostJob[]): string[] {
   }
   const tooLong = overlongXChoices(q)
   if (q.platform === "x" && tooLong.length) reasons.push(`選択肢 ${tooLong.join("・")} が投票の上限（番号込み 25 文字）を超えています`)
+  const discordLen = q.platform === "discord" ? overlongDiscordText(q) : null
+  if (discordLen !== null) reasons.push(`メッセージが ${discordLen} 文字あり、Discord の上限（2000 文字）を超えています`)
   return reasons
 }
 

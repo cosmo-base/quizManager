@@ -18,7 +18,7 @@ export interface QuizBackend {
   /** 事実確認・正解一意性・出典照合などを再実行 */
   verifyQuestion(question: Question): Promise<FactCheck>
   /** X / Discord へ投稿。Instagram は休止中のため呼ばない */
-  publishPost(job: PostJob, question: Question): Promise<{ externalId: string; url: string; publishedAt: string; dryRun?: boolean }>
+  publishPost(job: PostJob, question: Question): Promise<{ externalId: string; url: string; publishedAt: string; dryRun?: boolean; warning?: string | null }>
   /** 公開状況が不明な投稿を照会。見つからない場合 found=false */
   checkPostStatus(job: PostJob): Promise<{ found: boolean; url: string | null; externalId: string | null }>
   revealAnswer(job: PostJob, question: Question): Promise<void>
