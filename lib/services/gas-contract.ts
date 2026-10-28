@@ -1,7 +1,7 @@
 // GAS Web アプリとの通信契約（決定事項：ロジックは GAS、データの正本は Google Sheets）。
 // 管理画面は Google ログインの ID トークンを付けて POST し、GAS 側で検証・許可メールアドレスと照合する。
 // GAS 側の実装：WebApp.gs（振り分け）・Questions.gs・Posting.gs
-import type { ChoiceLabel, Choice, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot, Role } from "@/lib/types"
+import type { ChoiceLabel, Choice, Difficulty, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot, Role } from "@/lib/types"
 
 export type GasAction =
   | "testConnection"
@@ -145,6 +145,9 @@ export interface GasQuestion {
   choices: Choice[]
   answer: ChoiceLabel
   explanation: string
+  /** 難易度・分類（未設定なら null。古い GAS では無い） */
+  difficulty?: Exclude<Difficulty, "auto"> | null
+  category?: string | null
   savedBy: string
   savedAt: string | null
   versionCount: number
@@ -163,6 +166,9 @@ export interface SaveQuestionInput {
   plannedDate: string | null
   status: QuestionStatus
   note?: string
+  /** 省略すると前の版の値を引き継ぐ。null で未設定に戻す */
+  difficulty?: Exclude<Difficulty, "auto"> | null
+  category?: string | null
 }
 
 /** importQuestions：Excel・CSV から読み込んだ問題を下書きでまとめて登録する（1 回 100 問まで） */
@@ -176,6 +182,8 @@ export interface ImportQuestionInput {
   platform: Exclude<Platform, "instagram">
   plannedDate: string | null
   note?: string
+  difficulty?: Exclude<Difficulty, "auto"> | null
+  category?: string | null
 }
 export interface ImportQuestionsResult {
   saved: { ref: string; id: string; platform: Platform }[]

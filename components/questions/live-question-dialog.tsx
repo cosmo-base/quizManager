@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { SimpleSelect } from "@/components/shared/simple-select"
 import { useQuiz } from "@/lib/store/quiz-store"
-import type { ChoiceLabel, Platform, Question, QuestionStatus } from "@/lib/types"
+import type { ChoiceLabel, Difficulty, Platform, Question, QuestionStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { DISCORD_EMOJI } from "@/lib/discord-format"
+import { DIFFICULTY_LABEL } from "@/lib/constants"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
 import { questionError } from "@/lib/question-validate"
 
@@ -23,8 +24,13 @@ const STATUS_OPTIONS: { value: QuestionStatus; label: string }[] = [
   { value: "approved", label: "承認済み（出題日があれば予約、空欄なら予備）" },
 ]
 
+const DIFFICULTY_OPTIONS: { value: Difficulty; label: string }[] = [
+  { value: "auto", label: "未設定" },
+  ...(["beginner", "intermediate", "advanced"] as const).map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] })),
+]
+
 export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { actions, can } = useQuiz()
+  const { data, actions, can } = useQuiz()
   // GAS は「承認済み」で保存するには承認、下書き・確認待ちで保存するには編集の権限を求める
   const statusOptions = STATUS_OPTIONS.filter((o) => (o.value === "approved" ? can("approve") : can("edit")))
   const [platform, setPlatform] = useState<Exclude<Platform, "instagram">>(q?.platform === "discord" ? "discord" : "x")
@@ -37,6 +43,9 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [answer, setAnswer] = useState<ChoiceLabel>(q?.answer ?? "A")
   const [explanation, setExplanation] = useState(q?.explanation ?? "")
   const [note, setNote] = useState("")
+  const [difficulty, setDifficulty] = useState<Difficulty>(q?.difficulty ?? "auto")
+  const [category, setCategory] = useState(q?.categoryId || "none")
+  const categoryOptions = [{ value: "none", label: "未設定" }, ...data.categories.map((c) => ({ value: c.id, label: c.name }))]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -57,6 +66,8 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
       plannedDate: plannedDate || null,
       status,
       note: note.trim() || undefined,
+      difficulty: difficulty === "auto" ? null : difficulty,
+      category: category === "none" ? null : category,
     })
     setSaving(false)
     if (saved) {
@@ -93,6 +104,14 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-status">状態</Label>
               <SimpleSelect id="lq-status" value={status} onChange={setStatus} options={statusOptions} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lq-difficulty">難易度</Label>
+              <SimpleSelect id="lq-difficulty" value={difficulty} onChange={setDifficulty} options={DIFFICULTY_OPTIONS} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lq-category">分類</Label>
+              <SimpleSelect id="lq-category" value={category} onChange={setCategory} options={categoryOptions} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">

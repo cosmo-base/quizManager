@@ -97,11 +97,11 @@ export function LibraryFilterBar({
               id="f-cat"
               value={filters.categoryId}
               onChange={(v) => set("categoryId", v)}
-              options={[{ value: "all", label: "すべて" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+              options={[{ value: "all", label: "すべて" }, ...categories.map((c) => ({ value: c.id, label: c.name })), { value: "none", label: "未設定" }]}
             />
           </Field>
           <Field label="難易度" id="f-diff">
-            <SimpleSelect id="f-diff" value={filters.difficulty} onChange={(v) => set("difficulty", v)} options={opts(difficulties)} />
+            <SimpleSelect id="f-diff" value={filters.difficulty} onChange={(v) => set("difficulty", v)} options={[...opts(difficulties), { value: "auto", label: "未設定" }]} />
           </Field>
           <Field label="出題日（から）" id="f-from">
             <Input id="f-from" type="date" value={filters.from} onChange={(e) => set("from", e.target.value)} />

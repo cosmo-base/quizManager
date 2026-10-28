@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlatformMark } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { SampleTag } from "@/components/shared/states"
-import { DIFFICULTY_LABEL, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
+import { QUESTION_DIFFICULTY_LABEL, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
 import { formatCount, formatDate, formatPercent } from "@/lib/format"
 import type { Question, SystemSettings } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -82,7 +82,7 @@ export function LibraryTable({
       case "category":
         return categoryName(q.categoryId)
       case "difficulty":
-        return DIFFICULTY_LABEL[q.difficulty]
+        return QUESTION_DIFFICULTY_LABEL[q.difficulty]
       case "answer":
         return <span className="font-mono font-semibold">{q.answer}</span>
       case "date":

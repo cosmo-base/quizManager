@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PlatformMark } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import {
-  DIFFICULTY_LABEL,
+  QUESTION_DIFFICULTY_LABEL,
   FACTCHECK_STATUS,
   IMAGE_STATUS,
   PLATFORM_LABEL,
@@ -148,7 +148,7 @@ function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: strin
             <dt className="text-muted-foreground">分類</dt>
             <dd>{categoryName(q.categoryId)}</dd>
             <dt className="text-muted-foreground">難易度</dt>
-            <dd>{DIFFICULTY_LABEL[q.difficulty]}</dd>
+            <dd>{QUESTION_DIFFICULTY_LABEL[q.difficulty]}</dd>
             <dt className="text-muted-foreground">媒体</dt>
             <dd>
               <PlatformMark platform={q.platform} />
