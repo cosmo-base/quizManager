@@ -19,6 +19,7 @@ import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
 import type { Question, QualityScore } from "@/lib/types"
 import { can } from "@/lib/validation"
 import { cn } from "@/lib/utils"
+import { LiveReturnNotice, SimilarWarning } from "@/components/questions/live-suggestion"
 import { questionHref } from "@/lib/routes"
 
 const QUALITY_LABEL: Record<keyof QualityScore, string> = {
@@ -80,7 +81,8 @@ export function ReviewPanel({ q }: { q: Question }) {
           {q.id}
         </Link>
         <span className="text-xs text-muted-foreground">
-          {categoryName(q.categoryId)} ・ {QUESTION_DIFFICULTY_LABEL[q.difficulty]} ・ v{q.versions.length}
+          {categoryName(q.categoryId)} ・ {QUESTION_DIFFICULTY_LABEL[q.difficulty]}
+          {q.topic && ` ・ ${q.topic}`} ・ v{isLive ? q.versions[0]?.version : q.versions.length}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={(isLive && !aiReady) || !can(state.role, "generate")}>
@@ -112,8 +114,10 @@ export function ReviewPanel({ q }: { q: Question }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-2 xl:divide-x xl:overflow-hidden">
         <div className="flex flex-col gap-5 p-4 xl:overflow-y-auto">
+          {isLive && <LiveReturnNotice q={q} />}
           <Block title="問題">
             <p className="text-base leading-relaxed text-pretty">{q.text}</p>
+            {isLive && <SimilarWarning text={q.text} exclude={q.id} className="mt-2" />}
           </Block>
           <Block title="選択肢">
             <ol className="flex flex-col gap-1.5">

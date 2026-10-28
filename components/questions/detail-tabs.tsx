@@ -25,6 +25,8 @@ import { formatCount, formatDateTime, formatPercent } from "@/lib/format"
 import type { CheckResult, PostJob, Question, ReviewEntry, SystemSettings } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { responseStats, reusableDate } from "./library-utils"
+import { LiveNoteHistory, LiveRelatedTab, LiveVersionsTab, useLiveHistory } from "./live-detail"
+import type { GasQuestion } from "@/lib/services/gas-contract"
 
 export const CHECK: Record<CheckResult, { label: string; tone: Tone }> = {
   pass: { label: "OK", tone: "success" },
@@ -59,21 +61,35 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>
 }
 
-export function QuestionDetailTabs({
-  q,
-  questions,
-  postJobs,
-  categoryName,
-  rules,
-  today,
-}: {
+interface DetailTabsProps {
   q: Question
   questions: Question[]
   postJobs: PostJob[]
   categoryName: (id: string) => string
   rules: SystemSettings["rules"]
   today: string
-}) {
+}
+
+export function QuestionDetailTabs(props: DetailTabsProps) {
+  const live = useQuiz().state.settings.dataMode === "live"
+  return live ? <LiveDetailTabs {...props} /> : <DetailTabs {...props} live={null} />
+}
+
+/** 実APIモード：全版の履歴を GAS から読んでからタブに渡す */
+function LiveDetailTabs(props: DetailTabsProps) {
+  const live = useLiveHistory(props.q)
+  return <DetailTabs {...props} live={live} />
+}
+
+function DetailTabs({
+  q,
+  questions,
+  postJobs,
+  categoryName,
+  rules,
+  today,
+  live,
+}: DetailTabsProps & { live: { history: GasQuestion[] | null; loading: boolean } | null }) {
   return (
     <Tabs defaultValue="content" className="flex flex-col gap-4">
       <TabsList className="w-full justify-start overflow-x-auto">
@@ -88,10 +104,10 @@ export function QuestionDetailTabs({
         <ContentTab q={q} categoryName={categoryName} />
       </TabsContent>
       <TabsContent value="sources">
-        <SourcesTab q={q} />
+        <SourcesTab q={q} live={live} />
       </TabsContent>
       <TabsContent value="related">
-        <RelatedTab q={q} questions={questions} rules={rules} today={today} />
+        {live ? <LiveRelatedTab q={q} questions={questions} /> : <RelatedTab q={q} questions={questions} rules={rules} today={today} />}
       </TabsContent>
       <TabsContent value="history">
         <HistoryTab q={q} postJobs={postJobs} />
@@ -100,7 +116,7 @@ export function QuestionDetailTabs({
         <ResultsTab q={q} />
       </TabsContent>
       <TabsContent value="versions">
-        <VersionsTab q={q} />
+        {live ? <LiveVersionsTab {...live} /> : <VersionsTab q={q} />}
       </TabsContent>
     </Tabs>
   )
@@ -192,7 +208,7 @@ function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: strin
   )
 }
 
-function SourcesTab({ q }: { q: Question }) {
+function SourcesTab({ q, live }: { q: Question; live: { history: GasQuestion[] | null; loading: boolean } | null }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Section title="出典" className="lg:col-span-2">
@@ -252,8 +268,10 @@ function SourcesTab({ q }: { q: Question }) {
           )}
         </div>
       </Section>
-      <Section title="承認履歴">
-        {q.reviewHistory.length === 0 ? (
+      <Section title={live ? "確認・承認のメモ" : "承認履歴"}>
+        {live ? (
+          <LiveNoteHistory {...live} />
+        ) : q.reviewHistory.length === 0 ? (
           <Empty>履歴がありません</Empty>
         ) : (
           <ol className="flex flex-col gap-3">

@@ -38,6 +38,7 @@ export const liveBackend: QuizBackend = {
   getAutomationStatus: () => callGas<GasAutomationStatus>("getAutomationStatus", {}, "自動投稿の状態の取得"),
   setAutomationEnabled: (enabled) => callGas<{ enabled: boolean }>("setAutomationEnabled", { enabled }, "自動投稿の切り替え"),
   generateQuestions: (input) => callGas<GenerateQuestionsResult>("generateQuestions", input, "AI問題生成"),
+  getQuestionHistory: (questionId) => callGas<GasQuestion[]>("getQuestionHistory", { questionId }, "履歴の取得"),
   importQuestions: (rows, fileName) => callGas<ImportQuestionsResult>("importQuestions", { rows, fileName }, "問題の取り込み"),
   getMe: () => callGas<GasMe>("getMe", {}, "ユーザー情報の取得"),
   requestRole: (role, note) => callGas<{ pendingRequest: GasRoleRequest }>("requestRole", { role, note }, "権限の申請"),

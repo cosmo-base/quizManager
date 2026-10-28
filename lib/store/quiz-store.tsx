@@ -49,11 +49,11 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GenerateQuestionsInput, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GasPlan, GenerateQuestionsInput, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
 import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
-import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot } from "@/lib/live/mappers"
+import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot, type LivePlan } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
 
 export interface AppData {
@@ -265,7 +265,14 @@ function useQuizStoreValue() {
         const jobs = gasJobs.filter((j) => j.questionId).map((j) => toPostJob(j, time))
         const discordConfigured = status.discordConfigured === true
         // Discord は Bot が設定済みのときだけ予約に並べる（未設定なら「予約待ち」に理由を出す）
-        const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time, discordConfigured ? ["x", "discord"] : ["x"])]
+        // 21:00 に固定した今日・明日の分（自動投稿の状態から）
+        const plans: LivePlan[] = []
+        const addPlan = (platform: Platform, date: string, p: GasPlan | null | undefined) => p && plans.push({ ...p, date, platform })
+        addPlan("x", automation.today, automation.todayPlan)
+        addPlan("x", automation.tomorrow, automation.tomorrowPlan)
+        addPlan("discord", automation.today, automation.discord?.todayPlan)
+        addPlan("discord", automation.tomorrow, automation.discord?.tomorrowPlan)
+        const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time, discordConfigured ? ["x", "discord"] : ["x"], plans)]
         const responses = gasJobs.map(toResponseSnapshot).filter((r) => r !== null)
         draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses))
         draft.live.postJobs = allJobs
@@ -322,6 +329,9 @@ function useQuizStoreValue() {
     else toast.error("保存できる問題がありませんでした", { description: res.rejected[0]?.reason })
     return res
   }
+
+  /** 1 問の全版（古い順）。読めなければ null */
+  const loadLiveHistory = async (id: string) => callBackend("履歴の取得", (b) => b.getQuestionHistory(id))
 
   /** Excel・CSV から読み込んだ問題を下書きで正本に登録する（100 問ずつ送る） */
   const importLiveQuestions = async (rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult | null> => {
@@ -1685,6 +1695,7 @@ function useQuizStoreValue() {
     refreshLive,
     saveLiveQuestion,
     importLiveQuestions,
+    loadLiveHistory,
     setLiveAutomation,
     liveGenerate,
     assignLiveDate,

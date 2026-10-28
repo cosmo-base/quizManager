@@ -147,6 +147,11 @@ export function PostTable({
                 </TableCell>
                 <TableCell>
                   <StatusBadge {...POST_STATUS[j.status]} />
+                  {j.plan && j.status === "scheduled" && (
+                    <span className="mt-1 block text-xs text-muted-foreground" title={j.plan.plannedAt ?? undefined}>
+                      21:00 固定{j.plan.source === "spare" ? "（予備から）" : ""}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <StatusBadge {...RESPONSE_STATUS[j.responseStatus]} />

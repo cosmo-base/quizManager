@@ -1,5 +1,6 @@
 "use client"
 
+import { useQuiz } from "@/lib/store/quiz-store"
 import { useState } from "react"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -37,6 +38,7 @@ export function LibraryFilterBar({
   categories: Category[]
 }) {
   const [expanded, setExpanded] = useState(false)
+  const live = useQuiz().state.settings.dataMode === "live"
   const set = <K extends keyof LibraryFilters>(key: K, value: LibraryFilters[K]) => onChange({ ...filters, [key]: value })
   const count = activeFilterCount(filters)
   const { auto: _auto, ...difficulties } = DIFFICULTY_LABEL
@@ -144,6 +146,8 @@ export function LibraryFilterBar({
               options={[{ value: "all", label: "すべて" }, { value: "none", label: "投稿なし" }, ...opts(POST_STATUS).slice(1)]}
             />
           </Field>
+          {/* 本番は再出題をしないので出さない */}
+          {!live && (
           <Field label="再出題可否" id="f-reuse">
             <SimpleSelect
               id="f-reuse"
@@ -156,6 +160,7 @@ export function LibraryFilterBar({
               ]}
             />
           </Field>
+          )}
         </div>
       )}
     </section>

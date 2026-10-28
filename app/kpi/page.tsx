@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { ExternalLink } from "lucide-react"
 import type { ChoiceLabel, Platform } from "@/lib/types"
 import { useQuiz, useCategoryName, useToday } from "@/lib/store/quiz-store"
-import { DIFFICULTY_LABEL, PLATFORM_LABEL } from "@/lib/constants"
+import { QUESTION_DIFFICULTY_LABEL, PLATFORM_LABEL } from "@/lib/constants"
 import { addDays, formatCount, formatDate, formatPercent } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
 import { SimpleSelect } from "@/components/shared/simple-select"
@@ -42,7 +42,7 @@ export default function KpiPage() {
   const categoryName = useCategoryName()
   const today = useToday()
   const isLive = state.settings.dataMode === "live"
-  // 実APIモード：分類・難易度は正本に無いので、期間で絞り、問題ごとの結果を出す
+  // 実APIモード：期間で絞り、問題ごとの結果も出す（分類・難易度が未設定の問題は「未設定」にまとめる）
   const [period, setPeriod] = useState<Period>("30")
   const since = period === "all" ? null : addDays(today, -Number(period) + 1)
   const jobDate = useMemo(() => new Map(data.postJobs.map((j) => [j.id, j.date])), [data.postJobs])
@@ -169,7 +169,6 @@ export default function KpiPage() {
               </dl>
             </section>
 
-            {!isLive && (
             <section aria-labelledby="by-category" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-category" className="text-sm font-semibold">
                 分類別の正答率
@@ -181,9 +180,6 @@ export default function KpiPage() {
                 data={[...kpi.byCategory.entries()].map(([id, a]) => ({ name: categoryName(id), value: rate(a) }))}
               />
             </section>
-            )}
-            {!isLive && (
-
             <section aria-labelledby="by-difficulty" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-difficulty" className="text-sm font-semibold">
                 難易度別の平均回答数
@@ -191,13 +187,12 @@ export default function KpiPage() {
               <SimpleBarChart
                 label="平均回答数"
                 color="var(--chart-3)"
-                data={(["beginner", "intermediate", "advanced"] as const).map((d) => {
+                data={(["beginner", "intermediate", "advanced", ...(kpi.byDifficulty.has("auto") ? (["auto"] as const) : [])] as const).map((d) => {
                   const a = kpi.byDifficulty.get(d)
-                  return { name: DIFFICULTY_LABEL[d], value: a && a.posts ? Math.round(a.responses / a.posts) : 0 }
+                  return { name: QUESTION_DIFFICULTY_LABEL[d], value: a && a.posts ? Math.round(a.responses / a.posts) : 0 }
                 })}
               />
             </section>
-            )}
 
             <section aria-labelledby="by-position" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-position" className="text-sm font-semibold">

@@ -73,7 +73,7 @@ export interface FactCheck {
   checkedAt: string | null
   model: string | null
   /** 実APIモード：難易度・分類が未設定だった問題への AI の案（反映は人が行う） */
-  suggestion?: { difficulty: Exclude<Difficulty, "auto"> | null; category: string | null } | null
+  suggestion?: { difficulty: Exclude<Difficulty, "auto"> | null; category: string | null; topic?: string | null } | null
 }
 
 export interface QualityScore {
@@ -292,6 +292,8 @@ export interface PostJob {
   answerRevealed: boolean
   error: string | null
   syncStatus: SyncStatus
+  /** 実APIモード：前日 21:00 に固定した版（固定前・固定のない日は無し） */
+  plan?: { source: "approved" | "spare"; plannedAt: string | null } | null
 }
 
 export type SyncStatus = "unsynced" | "syncing" | "synced" | "failed" | "needs_check"

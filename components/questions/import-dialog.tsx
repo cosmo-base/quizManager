@@ -23,6 +23,7 @@ import {
   guessColumns,
   guessHeaderRow,
   rowError,
+  rowWarning,
   sequentialColumns,
   targetPlatforms,
   toImportInputs,
@@ -31,7 +32,7 @@ import {
   type ImportPlatform,
   type ImportRow,
 } from "@/lib/import/question-import"
-import { CHOICE_LABELS, normalizeQuestionText } from "@/lib/question-validate"
+import { CHOICE_LABELS, normalizeQuestionText, TOPIC_MAX } from "@/lib/question-validate"
 import type { ImportQuestionsResult } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty } from "@/lib/types"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
@@ -115,6 +116,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
     [data.questions],
   )
   const errors = useMemo(() => new Map(rows.map((r) => [r.rowNo, rowError(r, existing, rows)])), [rows, existing])
+  const warnings = useMemo(() => new Map(rows.map((r) => [r.rowNo, rowWarning(r, data.questions)])), [rows, data.questions])
   const ready = rows.filter((r) => r.include && !errors.get(r.rowNo))
   const readyCount = ready.reduce((n, r) => n + (r.platform ? targetPlatforms(r.platform).length : 0), 0)
   const errorCount = rows.filter((r) => r.include && errors.get(r.rowNo)).length
@@ -195,7 +197,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
               />
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <span>列：媒体（X・Discord・両方）／問題文／選択肢A・B・C／正解（A・B・C）／解説／難易度・分類・出題日・メモ（任意）</span>
+              <span>列：媒体（X・Discord・両方）／問題文／選択肢A・B・C／正解（A・B・C）／解説／難易度・分類・題材・出題日・メモ（任意）</span>
               <Button variant="outline" size="sm" onClick={() => downloadTemplate(activeCategories)}>
                 <Download />
                 テンプレートをダウンロード
@@ -330,6 +332,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
                       key={r.rowNo}
                       row={r}
                       error={err ?? null}
+                      warning={warnings.get(r.rowNo) ?? null}
                       editing={editing === r.rowNo}
                       onEdit={() => setEditing(editing === r.rowNo ? null : r.rowNo)}
                       onChange={(patch) => update(r.rowNo, patch)}
@@ -418,6 +421,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
 function ReviewRow({
   row,
   error,
+  warning,
   editing,
   onEdit,
   onChange,
@@ -425,6 +429,7 @@ function ReviewRow({
 }: {
   row: ImportRow
   error: string | null
+  warning: string | null
   editing: boolean
   onEdit: () => void
   onChange: (patch: Partial<ImportRow>) => void
@@ -460,7 +465,10 @@ function ReviewRow({
           ) : error ? (
             <span className="text-xs text-destructive">{error}</span>
           ) : (
-            <StatusBadge tone="success" label="登録できます" />
+            <div className="flex flex-col gap-1">
+              <StatusBadge tone="success" label="登録できます" />
+              {warning && <span className="text-xs text-warning">{warning}</span>}
+            </div>
           )}
         </TableCell>
         <TableCell>
@@ -507,6 +515,10 @@ function ReviewRow({
                   onChange={(v) => onChange({ category: v === "none" ? null : v, categoryError: undefined })}
                   options={[{ value: "none", label: "未設定" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
                 />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-6">
+                <Label htmlFor={`${id}-topic`}>題材（任意）</Label>
+                <Input id={`${id}-topic`} value={row.topic} maxLength={TOPIC_MAX} onChange={(e) => onChange({ topic: e.target.value })} placeholder="例：木星" />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-6">
                 <Label htmlFor={`${id}-text`}>問題文</Label>

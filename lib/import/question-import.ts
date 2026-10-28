@@ -3,7 +3,8 @@
 import { strToU8, zipSync } from "fflate"
 import type { ImportQuestionInput } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty, Platform } from "@/lib/types"
-import { CHOICE_LABELS, normalizeQuestionText, questionError } from "@/lib/question-validate"
+import { CHOICE_LABELS, normalizeQuestionText, questionError, TOPIC_MAX, URL_PATTERN } from "@/lib/question-validate"
+import { findSimilar, SIMILAR_WARN } from "@/lib/similarity"
 
 export type ImportPlatform = Exclude<Platform, "instagram"> | "both"
 
@@ -17,6 +18,7 @@ export const FIELDS = [
   { key: "platform", label: "媒体", required: false, aliases: ["媒体", "投稿先", "platform", "sns"] },
   { key: "difficulty", label: "難易度", required: false, aliases: ["難易度", "難しさ", "レベル", "difficulty", "level"] },
   { key: "category", label: "分類", required: false, aliases: ["分類", "カテゴリ", "カテゴリー", "ジャンル", "category", "genre"] },
+  { key: "topic", label: "題材", required: false, aliases: ["題材", "トピック", "テーマ", "対象", "topic", "subject"] },
   { key: "plannedDate", label: "出題日", required: false, aliases: ["出題日", "投稿日", "日付", "予定日", "出題予定日", "投稿予定日", "配信日", "date"] },
   { key: "note", label: "メモ", required: false, aliases: ["メモ", "備考", "note", "memo", "出典", "テーマ"] },
 ] as const
@@ -155,6 +157,7 @@ export interface ImportRow {
   /** 分類の ID */
   category: string | null
   categoryError?: string
+  topic: string
   note: string
   /** 画面で外した行は登録しない */
   include: boolean
@@ -191,6 +194,7 @@ export function buildRows(rows: string[][], headerRow: number, columns: ColumnMa
       difficultyError: difficulty.error,
       category: category.value,
       categoryError: category.error,
+      topic: cell(r, "topic"),
       note: cell(r, "note"),
       include: true,
     })
@@ -207,6 +211,8 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
   if (row.dateError) return row.dateError
   if (row.difficultyError) return row.difficultyError
   if (row.categoryError) return row.categoryError
+  if (row.topic.length > TOPIC_MAX) return `題材は ${TOPIC_MAX} 文字までにしてください`
+  if (URL_PATTERN.test(row.topic)) return "題材に URL は入れられません"
   for (const p of targetPlatforms(row.platform)) {
     const e = questionError({ text: row.text, choices: row.choices, answer: row.answer, explanation: row.explanation }, p)
     if (e) return (row.platform === "both" ? `${p === "x" ? "X" : "Discord"} 用：` : "") + e
@@ -216,6 +222,12 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
     if (dup && dup.rowNo < row.rowNo) return `${dup.rowNo} 行目と同じ問題文です`
   }
   return null
+}
+
+/** 登録は止めない注意：正本によく似た問題がある（同じ問題文は rowError で止める） */
+export function rowWarning(row: ImportRow, existing: { id: string; text: string }[]): string | null {
+  const hits = findSimilar(row.text, existing, { min: SIMILAR_WARN, limit: 1 })
+  return hits.length ? `よく似た問題があります：${hits[0].item.id}（近さ ${Math.round(hits[0].score * 100)}%）` : null
 }
 
 /** 登録する問題（「両方」は X 用・Discord 用の 2 つ） */
@@ -232,6 +244,7 @@ export function toImportInputs(row: ImportRow, fileName: string): ImportQuestion
     plannedDate: row.plannedDate || null,
     difficulty: row.difficulty,
     category: row.category,
+    topic: row.topic.trim() || null,
     note: [`Excel から登録（${fileName} ${row.rowNo} 行目）`, row.note].filter(Boolean).join(" / "),
   }))
 }
@@ -255,9 +268,9 @@ function validations(categories: Category[]): string {
 }
 
 const TEMPLATE_ROWS = [
-  ["媒体", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "難易度", "分類", "出題日", "メモ"],
-  ["X", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "初級", "天文", "", "例：X 用"],
-  ["両方", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "初級", "宇宙基礎", "", "例：X と Discord の両方に登録"],
+  ["媒体", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "難易度", "分類", "題材", "出題日", "メモ"],
+  ["X", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "初級", "天文", "木星", "", "例：X 用"],
+  ["両方", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "初級", "宇宙基礎", "月", "", "例：X と Discord の両方に登録"],
 ]
 
 /** 取り込み用のテンプレートを .xlsx で作る（文字はすべてインライン文字列）。媒体・難易度・分類は Excel のプルダウンで選べる */
@@ -267,7 +280,7 @@ export function buildTemplateXlsx(categories: Category[]): Uint8Array {
     (r, ri) =>
       `<row r="${ri + 1}">${r.map((v, ci) => (v ? `<c r="${col(ci)}${ri + 1}" t="inlineStr"${ri === 0 ? ' s="1"' : ""}><is><t>${esc(v)}</t></is></c>` : "")).join("")}</row>`,
   ).join("")
-  const widths = [8, 50, 16, 16, 16, 6, 50, 8, 12, 12, 24]
+  const widths = [8, 50, 16, 16, 16, 6, 50, 8, 12, 14, 12, 24]
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${rowsXml}</sheetData>${validations(categories)}</worksheet>`
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`
   return zipSync({

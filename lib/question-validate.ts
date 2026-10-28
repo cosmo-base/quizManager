@@ -4,6 +4,9 @@ import type { ChoiceLabel, Platform } from "@/lib/types"
 import { DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
 
+/** 題材（「木星」など）の文字数の上限。GAS の QUESTION_TOPIC_MAX と同じ */
+export const TOPIC_MAX = 20
+
 export const CHOICE_LABELS: ChoiceLabel[] = ["A", "B", "C"]
 export const URL_PATTERN = /(https?:\/\/|www\.)|\b[a-z0-9][a-z0-9-]*\.(com|net|org|jp|io|co|me|ly|gl|ai|dev|app|info|biz|tv|link)\b/i
 
