@@ -25,7 +25,7 @@ function GenerateContent() {
     .reduce((sum, j) => sum + (j.actualCostJpy ?? j.estimatedCostJpy), 0)
   const job = data.jobs.find((j) => j.id === selectedId) ?? data.jobs.find((j) => j.status === "running") ?? data.jobs[0]
 
-  if (state.settings.dataMode === "live") return <LiveGenerate />
+  if (state.settings.dataMode === "live") return <LiveGenerate initialPlatform={initial.platform} similarId={params.get("similar")} />
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { PlatformBadge } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { EmptyState } from "@/components/shared/states"
-import { POST_STATUS, type Tone } from "@/lib/constants"
+import { POST_STATUS, ROLE_LABEL, type Tone } from "@/lib/constants"
 import { addDays, formatDate, formatDateTime } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
 import type { GasPlatformAutomation } from "@/lib/services/gas-contract"
@@ -119,27 +119,41 @@ export function LiveTodayPanel() {
   )
 }
 
-interface Alert {
+export interface LiveNotice {
   key: string
   tone: "danger" | "warning"
   text: string
   href: string
 }
 
-export function LiveAlertsPanel() {
+/** 実APIモードの「要対応」。ホームの要対応欄とヘッダーの通知で同じものを出す */
+export function useLiveNotices(): LiveNotice[] {
   const { data, state } = useQuiz()
   const auto = state.liveStatus.automation
   const ai = state.liveStatus.ai
-  const alerts: Alert[] = []
+  const me = state.liveStatus.me
+  const notices: LiveNotice[] = []
   data.postJobs
     .filter((j) => j.status === "failed" || j.status === "unknown")
-    .forEach((j) => alerts.push({ key: j.id, tone: j.status === "unknown" ? "danger" : "warning", text: `${formatDate(j.date)} の${j.platform === "x" ? " X" : " Discord"} の投稿が${j.status === "unknown" ? "成否不明です（投稿先で有無を確認してください）" : "失敗しています"}`, href: "/posts" }))
+    .forEach((j) => notices.push({ key: j.id, tone: j.status === "unknown" ? "danger" : "warning", text: `${formatDate(j.date)} の${j.platform === "x" ? " X" : " Discord"} の投稿が${j.status === "unknown" ? "成否不明です（投稿先で有無を確認してください）" : "失敗しています"}`, href: "/posts" }))
   const review = data.questions.filter((q) => q.status === "review" || q.status === "returned").length
-  if (review) alerts.push({ key: "review", tone: "warning", text: `確認・承認待ちの問題が ${review} 件あります`, href: "/reviews" })
-  if (auto && !auto.enabled) alerts.push({ key: "auto-off", tone: "warning", text: "毎朝の自動投稿が停止中です", href: "/posts" })
-  const errors = (auto?.recentLog ?? []).filter((l) => l.result === "error").slice(0, 3)
-  errors.forEach((l, i) => alerts.push({ key: `log-${i}`, tone: "danger", text: `${l.at ? formatDateTime(l.at) : ""} 自動処理のエラー：${l.message}`, href: "/posts" }))
-  if (ai?.configured && ai.monthCostJpy >= ai.budgetJpy * 0.8) alerts.push({ key: "ai", tone: ai.monthCostJpy >= ai.budgetJpy ? "danger" : "warning", text: `AI の今月の使用量が上限の ${Math.round((ai.monthCostJpy / ai.budgetJpy) * 100)}% です`, href: "/generate" })
+  if (review) notices.push({ key: "review", tone: "warning", text: `確認・承認待ちの問題が ${review} 件あります`, href: "/reviews" })
+  if (auto && !auto.enabled) notices.push({ key: "auto-off", tone: "warning", text: "毎朝の自動投稿が停止中です", href: "/posts" })
+  ;(auto?.recentLog ?? [])
+    .filter((l) => l.result === "error")
+    .slice(0, 3)
+    .forEach((l, i) => notices.push({ key: `log-${i}`, tone: "danger", text: `${l.at ? formatDateTime(l.at) : ""} 自動処理のエラー：${l.message}`, href: "/posts" }))
+  if (auto) {
+    const spareLow = [{ p: "X", n: auto.spareCount }, ...(auto.discord ? [{ p: "Discord", n: auto.discord.spareCount }] : [])].filter((x) => x.n < auto.spareMin)
+    if (spareLow.length) notices.push({ key: "spare", tone: "warning", text: `予備問題が最低数（${auto.spareMin} 問）を下回っています：${spareLow.map((x) => `${x.p} ${x.n} 問`).join("・")}`, href: "/generate" })
+  }
+  if (ai?.configured && ai.monthCostJpy >= ai.budgetJpy * 0.8) notices.push({ key: "ai", tone: ai.monthCostJpy >= ai.budgetJpy ? "danger" : "warning", text: `AI の今月の使用量が上限の ${Math.round((ai.monthCostJpy / ai.budgetJpy) * 100)}% です`, href: "/generate" })
+  if (me?.pendingRequest) notices.push({ key: "role", tone: "warning", text: `${ROLE_LABEL[me.pendingRequest.role]}への権限の申請が承認待ちです`, href: "/settings?tab=users" })
+  return notices
+}
+
+export function LiveAlertsPanel() {
+  const alerts = useLiveNotices()
 
   return (
     <Card>

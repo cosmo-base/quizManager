@@ -29,6 +29,15 @@ export type PostAction =
   | "manual"
   | "recordManual"
 
+/**
+ * 実APIモードで出す操作。予約時刻は 06:00 固定で、取り消しは出題計画（予備に戻す）で行うため出さない。
+ * 手動対応は「手動で投稿した URL を記録する」1 段階にする（記録すると投稿済みになる）
+ */
+export function liveActions(j: PostJob): PostAction[] {
+  const base = availableActions(j).filter((a) => a !== "reschedule" && a !== "cancel" && a !== "manual" && a !== "recordManual")
+  return j.status === "scheduled" || j.status === "failed" || j.status === "unknown" ? [...base, "recordManual"] : base
+}
+
 export function availableActions(j: PostJob): PostAction[] {
   switch (j.status) {
     case "draft":
@@ -67,11 +76,13 @@ export function PostTable({
   questions,
   disabled,
   onAction,
+  live = false,
 }: {
   jobs: PostJob[]
   questions: Map<string, Question>
   disabled: boolean
   onAction: (job: PostJob, action: PostAction) => void
+  live?: boolean
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
@@ -93,7 +104,7 @@ export function PostTable({
         <TableBody>
           {jobs.map((j) => {
             const q = questions.get(j.questionId)
-            const acts = availableActions(j)
+            const acts = live ? liveActions(j) : availableActions(j)
             return (
               <TableRow key={j.id}>
                 <TableCell className="tabular-nums">{formatDate(j.date, { weekday: true })}</TableCell>

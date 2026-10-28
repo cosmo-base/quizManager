@@ -49,7 +49,7 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAiStatus, GasAutomationStatus, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
 import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
@@ -83,6 +83,8 @@ export interface LiveStatus {
   ai: GasAiStatus | null
   /** ログインした人と GAS が決めた権限（null は未取得） */
   me: GasMe | null
+  /** 設定画面に出す GAS の設定の要約（null は未取得・古い GAS） */
+  config: GasConfigSummary | null
   /** ログインはできたが使えない理由（許可されていないアカウントなど）。ログイン画面に出す */
   authError: string | null
   loading: boolean
@@ -168,7 +170,7 @@ function useQuizStoreValue() {
       userName: live ? "" : DEMO_IDENTITY.userName,
       demo: demoData(),
       live: liveData(),
-      liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, me: null, authError: null, loading: false, loadedAt: null, automation: null },
+      liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, me: null, config: null, authError: null, loading: false, loadedAt: null, automation: null },
     }
   })
   const stateRef = useRef(state)
@@ -270,6 +272,7 @@ function useQuizStoreValue() {
         draft.liveStatus.discordDryRun = typeof status.discordDryRun === "boolean" ? status.discordDryRun : null
         draft.liveStatus.discordConfigured = discordConfigured
         draft.liveStatus.ai = status.ai ?? null
+        draft.liveStatus.config = status.config ?? null
         draft.liveStatus.automation = automation
         draft.liveStatus.loadedAt = nowIso()
       }),
@@ -1035,7 +1038,27 @@ function useQuizStoreValue() {
     toast.success(label(`${id} を不採用にしました`), { description: "出題枠は「生成待ち」に戻りました" })
   }
 
-  const regenerateQuestion = (id: string) => {
+  const regenerateQuestion = async (id: string) => {
+    if (!isDemo()) {
+      // Gemini で同じ媒体・出題日の問題を 1 問作り、できたら元の問題を不採用にする
+      if (!guard("別問題を生成", "generate", { live: true })) return
+      const q = stateRef.current.live.questions.find((x) => x.id === id)
+      if (!q || q.platform === "instagram") return
+      if (["scheduled", "posted", "archived"].includes(q.status) || q.history.some((h) => h.status === "posted")) return void toast.error("投稿済みの問題は作り直せません")
+      const res = await callBackend("別問題を生成", (b) => b.generateQuestions({ platform: q.platform as "x" | "discord", count: 1, plannedDate: q.plannedDate ?? undefined, instructions: `次の問題とは別の内容にすること：${q.text.slice(0, 80)}` }))
+      if (!res) return
+      if (!res.saved.length) return void toast.error("別の問題を作れませんでした", { description: res.rejected[0]?.reason })
+      // 不採用にするには承認の権限が要る（GAS も確かめる）。無ければ元の問題はそのまま残す
+      const canReject = can(stateRef.current.role, "approve")
+      if (canReject) {
+        await callBackend("不採用", (b) =>
+          b.saveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: null, status: "rejected", note: `別問題（${res.saved[0].id}）を生成したため` }),
+        )
+      }
+      await refreshLive()
+      toast.success(`${res.saved[0].id} を下書きで作りました`, { description: canReject ? `${id} は不採用にしました` : `${id} の不採用は承認者・管理者が行ってください` })
+      return
+    }
     if (!guard("再生成", "generate")) return
     const s = stateRef.current
     const q = s.demo.questions.find((x) => x.id === id)
@@ -1327,7 +1350,20 @@ function useQuizStoreValue() {
     toast.success(label("手動対応に切り替えました"), { description: "投稿パッケージをコ��ーして手動で投稿し、URLを記録してください" })
   }
 
-  const markManualPosted = (jobId: string, url: string) => {
+  const markManualPosted = async (jobId: string, url: string) => {
+    if (!isDemo()) {
+      // 手動で投稿した URL を正本に「投稿済み」として記録する。以後の正解発表・結果取得はこの投稿に対して行う
+      if (!guard("手動投稿の記録", "post", { live: true })) return
+      const s = stateRef.current
+      const job = s.live.postJobs.find((j) => j.id === jobId)
+      const q = s.live.questions.find((x) => x.id === job?.questionId)
+      if (!job || !q) return
+      const version = job.status === "unknown" || job.status === "failed" ? job.questionVersion : q.versions[q.versions.length - 1].version
+      const res = await callBackend("手動投稿の記録", (b) => b.recordManualPost({ ...job, questionVersion: version }, url))
+      await refreshLive()
+      if (res) toast.success(`${job.date} の手動投稿を記録しました（v${version}）`, { description: "正解発表・結果の取得はこの投稿に対して行います" })
+      return
+    }
     if (!guard("手動投稿の記録", "post")) return
     update((d) => {
       const j = d.postJobs.find((x) => x.id === jobId)

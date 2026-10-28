@@ -8,6 +8,7 @@ import { useQuiz } from "@/lib/store/quiz-store"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { AppNotification } from "@/lib/types"
+import { useLiveNotices } from "@/components/home/live-panels"
 
 const LEVEL_ICON: Record<AppNotification["level"], { icon: React.ComponentType<{ className?: string }>; className: string }> = {
   error: { icon: CircleX, className: "text-destructive" },
@@ -17,7 +18,8 @@ const LEVEL_ICON: Record<AppNotification["level"], { icon: React.ComponentType<{
 }
 
 export function NotificationsPopover() {
-  const { data, actions } = useQuiz()
+  const { data, state, actions } = useQuiz()
+  if (state.settings.dataMode === "live") return <LiveNotificationsPopover />
   const unread = data.notifications.filter((n) => !n.read).length
 
   return (
@@ -47,6 +49,39 @@ export function NotificationsPopover() {
                     <span className="text-[11px] text-muted-foreground">{formatRelative(n.createdAt)}</span>
                   </span>
                   {!n.read && <span className="sr-only">未読</span>}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** 実APIモード：正本と自動処理の状態から、いま対応が必要なことを出す（解決すると消える） */
+function LiveNotificationsPopover() {
+  const notices = useLiveNotices()
+  return (
+    <Popover>
+      <PopoverTrigger render={<Button variant="ghost" size="icon" className="relative" aria-label={`通知（要対応${notices.length}件）`} />}>
+        <Bell className="size-4" aria-hidden />
+        {notices.length > 0 && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive" aria-hidden />}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[min(92vw,24rem)] gap-0 p-0">
+        <div className="border-b px-4 py-3">
+          <p className="text-sm font-medium">要対応</p>
+          <p className="text-xs text-muted-foreground">対応すると一覧から消えます</p>
+        </div>
+        <ul className="flex max-h-96 flex-col overflow-y-auto">
+          {notices.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted-foreground">対応が必要なことはありません</li>}
+          {notices.map((n) => {
+            const { icon: Icon, className } = LEVEL_ICON[n.tone === "danger" ? "error" : "warning"]
+            return (
+              <li key={n.key} className="border-b last:border-b-0">
+                <Link href={n.href} className="flex gap-3 px-4 py-3 hover:bg-muted">
+                  <Icon className={cn("mt-0.5 size-4 shrink-0", className)} aria-hidden />
+                  <span className="min-w-0 text-sm break-all">{n.text}</span>
                 </Link>
               </li>
             )
