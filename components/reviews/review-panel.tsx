@@ -50,6 +50,7 @@ export function ReviewPanel({ q }: { q: Question }) {
   const canEdit = can(state.role, "edit")
   // 実APIモードは事実確認をまだ正本につないでいないため、検証の有無で承認を止めない
   const isLive = state.settings.dataMode === "live"
+  const aiReady = !!state.liveStatus.ai?.configured
   const unverified = !isLive && (q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed")
 
   const reverify = async () => {
@@ -92,7 +93,7 @@ export function ReviewPanel({ q }: { q: Question }) {
             <Undo2 />
             差し戻し
           </Button>
-          <Button size="sm" variant="outline" onClick={reverify} disabled={isLive || verifying || (!canApprove && !canEdit)}>
+          <Button size="sm" variant="outline" onClick={reverify} disabled={(isLive && !aiReady) || verifying || (!canApprove && !canEdit)}>
             <RefreshCw className={verifying ? "animate-spin" : undefined} />
             再検証
           </Button>

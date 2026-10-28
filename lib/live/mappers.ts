@@ -1,8 +1,16 @@
 // 実APIモード：GAS（正本の Sheets）から読んだデータを、画面で使う型に変換する。
 // 正本に無い項目（事実確認・品質スコア・画像など）は「未取得」を表す既定値にする。
 import { jstIso } from "@/lib/format"
-import type { GasPostJob, GasQuestion } from "@/lib/services/gas-contract"
-import type { Platform, PostJob, Question, ResponseSnapshot } from "@/lib/types"
+import type { GasFactCheck, GasPostJob, GasQuestion } from "@/lib/services/gas-contract"
+import type { FactCheck, Platform, PostJob, Question, ResponseSnapshot, Source } from "@/lib/types"
+
+const PENDING_FACT_CHECK: FactCheck = { status: "pending", items: [], concerns: [], checkedAt: null, model: null }
+
+/** ファクトチェック（Gemini）の出典を画面の出典の形にする。中身の階層は分からないので「その他参考情報」 */
+function toSources(fc: GasFactCheck | null | undefined): Source[] {
+  if (!fc) return []
+  return fc.sources.map((s, i) => ({ id: `${fc.version}-${i}`, title: s.title || s.url, publisher: s.title, url: s.url, tier: 4, excerpt: "", checkedAt: fc.checkedAt ?? "" }))
+}
 
 export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseSnapshot[], categoryId: string): Question {
   const snapshot = { text: g.text, choices: g.choices, answer: g.answer, explanation: g.explanation }
@@ -21,10 +29,10 @@ export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseS
     timeliness: "evergreen",
     status: g.status,
     plannedDate: g.plannedDate,
-    factCheck: { status: "pending", items: [], concerns: [], checkedAt: null, model: null },
+    factCheck: g.factCheck ? { status: g.factCheck.status, items: g.factCheck.items, concerns: g.factCheck.concerns, checkedAt: g.factCheck.checkedAt, model: g.factCheck.model } : { ...PENDING_FACT_CHECK, items: [], concerns: [] },
     duplicate: { level: "none", similar: [], reusableFrom: null },
     quality: { interest: 0, answerability: 0, choiceValidity: 0, learning: 0, platformFit: 0 },
-    sources: [],
+    sources: toSources(g.factCheck),
     // 正本は全版を持つが、画面には最新版だけを渡す（version は実際の版番号）
     versions: [{ version: g.version, hash: "", createdAt: savedAt, author: g.savedBy, summary: `v${g.version}（全 ${g.versionCount} 版）`, snapshot }],
     confirmedVersion: g.status === "approved" || g.status === "scheduled" || g.status === "posted" ? g.version : null,

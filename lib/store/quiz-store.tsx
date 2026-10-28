@@ -49,7 +49,7 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAutomationStatus, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
 import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
@@ -77,6 +77,8 @@ export interface LiveStatus {
   discordDryRun: boolean | null
   /** Discord の Bot が設定済みか（古い GAS では false） */
   discordConfigured: boolean
+  /** Gemini の設定と今月の使用量（null は未取得・古い GAS） */
+  ai: GasAiStatus | null
   loading: boolean
   loadedAt: string | null
   /** 毎朝の自動投稿の状態（null は未取得） */
@@ -154,7 +156,7 @@ function useQuizStoreValue() {
     userName: "山田 太一",
     demo: demoData(),
     live: liveData(),
-    liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, loading: false, loadedAt: null, automation: null },
+    liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, loading: false, loadedAt: null, automation: null },
   }))
   const stateRef = useRef(state)
   stateRef.current = state
@@ -229,6 +231,7 @@ function useQuizStoreValue() {
         draft.liveStatus.dryRun = status.dryRun
         draft.liveStatus.discordDryRun = typeof status.discordDryRun === "boolean" ? status.discordDryRun : null
         draft.liveStatus.discordConfigured = discordConfigured
+        draft.liveStatus.ai = status.ai ?? null
         draft.liveStatus.automation = automation
         draft.liveStatus.loadedAt = nowIso()
       }),
@@ -251,6 +254,32 @@ function useQuizStoreValue() {
     toast.success(`${saved.id} を保存しました（v${saved.version}）`)
     await refreshLive()
     return saved
+  }
+
+  /** Gemini で問題を作り、検査を通ったものを下書きで正本に保存する */
+  const liveGenerate = async (input: GenerateQuestionsInput) => {
+    if (!guard("AI問題生成", "generate", { live: true })) return null
+    if (stateRef.current.settings.emergencyStop) {
+      toast.error("緊急停止中のため生成できません")
+      return null
+    }
+    const res = await callBackend("AI問題生成", (b) => b.generateQuestions(input))
+    if (!res) return null
+    await refreshLive()
+    if (res.saved.length) toast.success(`${res.saved.length} 問を下書きで保存しました`, { description: res.rejected.length ? `${res.rejected.length} 問は検査で除外しました` : undefined })
+    else toast.error("保存できる問題がありませんでした", { description: res.rejected[0]?.reason })
+    return res
+  }
+
+  /** ファクトチェック（Gemini＋Google 検索）。結果は正本の fact_checks に記録される */
+  const liveVerify = async (id: string) => {
+    if (!guard("ファクトチェック", ["edit", "approve"], { live: true })) return
+    const q = stateRef.current.live.questions.find((x) => x.id === id)
+    if (!q) return
+    const res = await callBackend("ファクトチェック", (b) => b.verifyQuestion(q))
+    if (!res) return
+    await refreshLive()
+    toast.success("ファクトチェックを実行しました", { description: `判定：${res.status === "passed" ? "検証OK" : res.status === "warning" ? "要確認" : "検証NG"}（${res.model ?? "Gemini"}）` })
   }
 
   /** 毎朝の自動投稿（GAS の AUTOMATION_ENABLED）を止める・再開する */
@@ -808,6 +837,7 @@ function useQuizStoreValue() {
   }
 
   const reverify = async (id: string) => {
+    if (!isDemo()) return liveVerify(id)
     if (!guard("再検証", ["edit", "approve"])) return
     const q = stateRef.current.demo.questions.find((x) => x.id === id)
     if (!q) return
@@ -1483,6 +1513,7 @@ function useQuizStoreValue() {
     refreshLive,
     saveLiveQuestion,
     setLiveAutomation,
+    liveGenerate,
   }
 
   return { state, data, backendMode: backend.mode, actions, can: (p: Permission) => can(state.role, p) }
