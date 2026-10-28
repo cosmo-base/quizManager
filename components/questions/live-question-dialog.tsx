@@ -11,11 +11,11 @@ import { SimpleSelect } from "@/components/shared/simple-select"
 import { useQuiz } from "@/lib/store/quiz-store"
 import type { ChoiceLabel, Platform, Question, QuestionStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
+import { DISCORD_EMOJI } from "@/lib/discord-format"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
+import { questionError } from "@/lib/question-validate"
 
 const LABELS: ChoiceLabel[] = ["A", "B", "C"]
-const URL_PATTERN = /(https?:\/\/|www\.)|\b[a-z0-9][a-z0-9-]*\.(com|net|org|jp|io|co|me|ly|gl|ai|dev|app|info|biz|tv|link)\b/i
 
 const STATUS_OPTIONS: { value: QuestionStatus; label: string }[] = [
   { value: "draft", label: "下書き" },
@@ -41,17 +41,11 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [saving, setSaving] = useState(false)
 
   const optionLength = (i: number) => xPollOption(LABELS[i], choices[i]).length
-  const tooLong = platform === "x" ? LABELS.filter((_, i) => optionLength(i) > X_POLL_OPTION_MAX) : []
-  const discordLength =
-    platform === "discord" ? overlongDiscordText({ text, choices: LABELS.map((label, i) => ({ label, text: choices[i] })), answer, explanation }) : null
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!text.trim() || choices.some((c) => !c.trim()) || !explanation.trim()) return setError("問題文・選択肢・解説は必須です")
-    if (new Set(choices.map((c) => c.trim())).size !== choices.length) return setError("選択肢が重複しています")
-    if (tooLong.length) return setError(`選択肢 ${tooLong.join("・")} が長すぎます（X の投票は番号込みで ${X_POLL_OPTION_MAX} 文字まで）`)
-    if (discordLength !== null) return setError(`Discord のメッセージが ${discordLength} 文字あります（${DISCORD_MESSAGE_MAX} 文字まで）`)
-    if ([text, explanation, ...choices].some((v) => URL_PATTERN.test(v))) return setError("投稿本文には URL を入れられません")
+    const invalid = questionError({ text, choices, answer, explanation }, platform)
+    if (invalid) return setError(invalid)
     setSaving(true)
     const saved = await actions.saveLiveQuestion({
       id: q?.id,

@@ -1,0 +1,36 @@
+// 問題を正本に保存する前の入力チェック（問題の作成・編集と、Excel からの取り込みで共通）。
+// GAS 側（Questions.js の validateQuestion_）でも同じ確認をする。
+import type { ChoiceLabel, Platform } from "@/lib/types"
+import { DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
+import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
+
+export const CHOICE_LABELS: ChoiceLabel[] = ["A", "B", "C"]
+export const URL_PATTERN = /(https?:\/\/|www\.)|\b[a-z0-9][a-z0-9-]*\.(com|net|org|jp|io|co|me|ly|gl|ai|dev|app|info|biz|tv|link)\b/i
+
+export interface QuestionFields {
+  text: string
+  /** A・B・C の順 */
+  choices: string[]
+  answer: ChoiceLabel
+  explanation: string
+}
+
+/** 問題がなければ null、あれば理由 */
+export function questionError(f: QuestionFields, platform: Exclude<Platform, "instagram">): string | null {
+  if (!f.text.trim() || f.choices.some((c) => !c.trim()) || !f.explanation.trim()) return "問題文・選択肢・解説は必須です"
+  if (new Set(f.choices.map((c) => c.trim())).size !== f.choices.length) return "選択肢が重複しています"
+  if (platform === "x") {
+    const tooLong = CHOICE_LABELS.filter((l, i) => xPollOption(l, f.choices[i]).length > X_POLL_OPTION_MAX)
+    if (tooLong.length) return `選択肢 ${tooLong.join("・")} が長すぎます（X の投票は番号込みで ${X_POLL_OPTION_MAX} 文字まで）`
+  } else {
+    const n = overlongDiscordText({ text: f.text, choices: CHOICE_LABELS.map((label, i) => ({ label, text: f.choices[i] })), answer: f.answer, explanation: f.explanation })
+    if (n !== null) return `Discord のメッセージが ${n} 文字あります（${DISCORD_MESSAGE_MAX} 文字まで）`
+  }
+  if ([f.text, f.explanation, ...f.choices].some((v) => URL_PATTERN.test(v))) return "投稿本文には URL を入れられません"
+  return null
+}
+
+/** 重複を見つけるための問題文の正規化（全角・半角、空白、句読点の揺れをそろえる） */
+export function normalizeQuestionText(s: string): string {
+  return s.normalize("NFKC").replace(/[\s　、。,.!?！？「」『』()（）]/g, "").toLowerCase()
+}
