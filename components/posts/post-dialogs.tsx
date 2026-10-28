@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
+import { buildDiscordAnswerText, buildDiscordQuestionText, DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
 import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX } from "@/lib/x-poll"
 import type { Platform, Question } from "@/lib/types"
 
@@ -60,18 +61,24 @@ export function PostPreviewDialog({
             </>
           ) : (
             <>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{q.text}</p>
-              <ul className="flex flex-col gap-1 text-sm" aria-label="リアクション選択肢">
-                {q.choices.map((c) => (
-                  <li key={c.label} className="flex items-center gap-2">
-                    <span className="inline-flex size-6 items-center justify-center rounded border bg-background font-mono text-xs font-semibold">
-                      {c.label}
-                    </span>
-                    {c.text}
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildDiscordQuestionText(q)}</p>
+              <ul className="flex flex-wrap items-center gap-1.5 text-sm" aria-label="Bot が付けるリアクション">
+                {(["A", "B", "C"] as const).map((l) => (
+                  <li key={l} className="rounded-full border bg-background px-2.5 py-0.5">
+                    {DISCORD_EMOJI[l]} 1
                   </li>
                 ))}
-                <li className="text-xs text-muted-foreground">リアクションで回答（Botのリアクションは集計対象外）</li>
               </ul>
+              {overlongDiscordText(q) !== null && (
+                <p role="alert" className="text-xs text-destructive">
+                  メッセージが {overlongDiscordText(q)} 文字あり、Discord の上限（{DISCORD_MESSAGE_MAX} 文字）を超えています。このままでは投稿できません
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">Bot が 1️⃣2️⃣3️⃣ を付けます（Bot の分・複数選択は集計対象外）・ 翌朝 06:00 の正解発表の直前に締切</p>
+              <div className="flex flex-col gap-1 border-l-2 pl-3">
+                <span className="text-xs text-muted-foreground">翌朝の返信（正解・解説）</span>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildDiscordAnswerText(q)}</p>
+              </div>
             </>
           )}
         </div>

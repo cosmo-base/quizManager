@@ -2,7 +2,7 @@
 // 正本に無い項目（事実確認・品質スコア・画像など）は「未取得」を表す既定値にする。
 import { jstIso } from "@/lib/format"
 import type { GasPostJob, GasQuestion } from "@/lib/services/gas-contract"
-import type { PostJob, Question, ResponseSnapshot } from "@/lib/types"
+import type { Platform, PostJob, Question, ResponseSnapshot } from "@/lib/types"
 
 export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseSnapshot[], categoryId: string): Question {
   const snapshot = { text: g.text, choices: g.choices, answer: g.answer, explanation: g.explanation }
@@ -73,21 +73,21 @@ export function toResponseSnapshot(g: GasPostJob): ResponseSnapshot | null {
 }
 
 /**
- * 承認済みで出題日がある X の問題のうち、まだ投稿記録がないものを「予約済み」の投稿として並べる。
+ * 承認済みで出題日がある X・Discord の問題のうち、まだ投稿記録がないものを「予約済み」の投稿として並べる。
  * 実際の投稿は「今すぐ投稿」（publishPost）で行い、そのとき問題の最新版を固定する。
  */
-export function scheduledJobsFor(questions: GasQuestion[], jobs: PostJob[], defaultTime: string): PostJob[] {
+export function scheduledJobsFor(questions: GasQuestion[], jobs: PostJob[], defaultTime: string, platforms: Platform[] = ["x", "discord"]): PostJob[] {
   // 失敗した投稿も一覧に残っているので重ねない（再投稿はその行の「今すぐ投稿」から行う）
   const taken = new Set(jobs.map((j) => j.id))
   return questions
-    .filter((q) => q.platform === "x" && q.status === "approved" && q.plannedDate)
+    .filter((q) => platforms.includes(q.platform) && q.status === "approved" && q.plannedDate)
     .map((q) => ({ q, id: `${q.plannedDate}:${q.platform}` }))
     .filter(({ id }) => !taken.has(id))
     .map(({ q, id }) => ({
       id,
       questionId: q.id,
       questionVersion: q.version,
-      platform: "x" as const,
+      platform: q.platform,
       date: q.plannedDate!,
       scheduledAt: jstIso(q.plannedDate!, defaultTime),
       publishedAt: null,

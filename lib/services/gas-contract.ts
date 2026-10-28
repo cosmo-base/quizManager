@@ -31,9 +31,13 @@ export type GasResponse<T> =
   /** outcome=unknown は成否不明。UI から自動で再実行しないこと */
   | { ok: false; outcome: "failed" | "unknown"; error: string }
 
-/** getStatus：X_DRY_RUN が有効なら X には投稿しない */
+/** getStatus：X_DRY_RUN / DISCORD_DRY_RUN が有効ならその媒体には投稿しない */
 export interface GasStatus {
   dryRun: boolean
+  /** 古い GAS では無い（Discord 未対応として扱う） */
+  discordDryRun?: boolean
+  /** Discord の Bot（DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID）が設定済みか */
+  discordConfigured?: boolean
 }
 
 /** questions タブの最新版（保存のたびに版が 1 つ上がる） */
@@ -81,6 +85,8 @@ export interface PublishPostResult {
   url: string
   publishedAt: string
   dryRun: boolean
+  /** Discord：投稿はできたがリアクションを付けられなかったなど（無ければ null） */
+  warning?: string | null
 }
 
 /** listPostJobs：post_log と responses から求めた投稿の状態（日付×媒体ごと） */
@@ -97,7 +103,7 @@ export interface GasPostJob {
   answerRevealed: boolean
   error: string | null
   dryRun: boolean
-  response: Pick<ResponseSnapshot, "responses" | "correct" | "perChoice" | "finalized" | "collectedAt"> | null
+  response: Pick<ResponseSnapshot, "responses" | "correct" | "perChoice" | "finalized" | "collectedAt" | "reactionEvents" | "uniqueVoters" | "invalidVoters"> | null
 }
 
 /** getAutomationStatus：毎朝の自動投稿の状態（GAS の Daily.gs・Evening.gs） */
@@ -123,6 +129,17 @@ export interface GasAutomationLog {
   result: string
   message: string
 }
+/** 媒体ごとの予約・投稿状態（最上位の同名の項目は X の分） */
+export interface GasPlatformAutomation {
+  dryRun: boolean
+  todayPlan: GasPlan | null
+  tomorrowPlan: GasPlan | null
+  todayCandidates: { questionId: string; version: number }[]
+  tomorrowCandidates: { questionId: string; version: number }[]
+  todayPost: GasPostState | null
+  yesterdayAnswer: GasPostState | null
+  spareCount: number
+}
 export interface GasAutomationStatus {
   enabled: boolean
   dryRun: boolean
@@ -136,6 +153,9 @@ export interface GasAutomationStatus {
   yesterdayAnswer: GasPostState | null
   spareCount: number
   spareMin: number
+  /** Discord の Bot が設定済みなら Discord の分（未設定・古い GAS では null / 無し） */
+  discord?: GasPlatformAutomation | null
+  /** 運営用チャンネルの Webhook（DISCORD_OPS_WEBHOOK_URL）が設定済みか */
   discordConfigured: boolean
   notifyConfigured: boolean
   recentLog: GasAutomationLog[]

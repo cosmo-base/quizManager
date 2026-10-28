@@ -450,6 +450,7 @@ function ResultsTab({ q }: { q: Question }) {
                     <>
                       <Metric label="リアクション" value={formatCount(r.reactionEvents ?? null)} />
                       <Metric label="有効回答者" value={formatCount(r.uniqueVoters ?? null)} />
+                      {r.invalidVoters != null && <Metric label="無効（複数選択）" value={formatCount(r.invalidVoters)} />}
                     </>
                   )}
                 </dl>

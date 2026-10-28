@@ -11,6 +11,7 @@ import { PostTable, type PostAction } from "@/components/posts/post-table"
 import { InstagramStock, ScheduleQueue } from "@/components/posts/side-panels"
 import { AutomationCard } from "@/components/posts/automation-card"
 import { PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/components/posts/post-dialogs"
+import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatTime } from "@/lib/format"
 import { useQuiz } from "@/lib/store/quiz-store"
 import type { PostJob, PostStatus } from "@/lib/types"
@@ -48,7 +49,10 @@ export default function PostsPage() {
 
   const canPost = can(state.role, "post")
   const isLive = state.settings.dataMode === "live"
-  const { dryRun, loading } = state.liveStatus
+  const { dryRun, discordDryRun, discordConfigured, loading } = state.liveStatus
+  const dryRunOf = (p: PostJob["platform"]) => (p === "discord" ? discordDryRun : dryRun)
+  // どちらかの媒体が本番投稿なら赤い帯で知らせる
+  const anyLive = dryRun === false || (discordConfigured && discordDryRun === false)
   const questionMap = useMemo(() => new Map(data.questions.map((q) => [q.id, q])), [data.questions])
   const xIntegration = data.integrations.find((i) => i.key === "x")
 
@@ -83,7 +87,7 @@ export default function PostsPage() {
         setDialog({ kind: action, job })
         break
       case "postNow":
-        // 実APIモードは X に送るため、必ず確認してから実行する
+        // 実APIモードは X・Discord に送るため、必ず確認してから実行する
         if (isLive) setDialog({ kind: "confirmSend", job, action: "postNow" })
         else actions.postNow(job.id)
         break
@@ -113,6 +117,15 @@ export default function PostsPage() {
   }
 
   const activeJob = dialog && "job" in dialog ? dialog.job : null
+  const confirmPlatform = dialog?.kind === "confirmSend" ? dialog.job.platform : "x"
+  const confirmName = PLATFORM_LABEL[confirmPlatform]
+  const confirmDry = dryRunOf(confirmPlatform) !== false
+  const confirmTitle =
+    dialog?.kind === "confirmSend" && dialog.action === "reveal"
+      ? confirmPlatform === "discord"
+        ? "締め切って、正解・解説を返信しますか？"
+        : "正解・解説をリプライしますか？"
+      : `${confirmName} に問題を投稿しますか？`
 
   return (
     <div className="flex flex-col gap-6">
@@ -138,17 +151,22 @@ export default function PostsPage() {
         <div
           role="note"
           className={
-            dryRun
+            !anyLive
               ? "flex items-start gap-3 rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm"
               : "flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm"
           }
         >
-          {dryRun ? <ShieldCheck className="mt-0.5 size-4 shrink-0 text-info" aria-hidden /> : <Send className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />}
+          {!anyLive ? <ShieldCheck className="mt-0.5 size-4 shrink-0 text-info" aria-hidden /> : <Send className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />}
           <p className="leading-relaxed">
             {dryRun
-              ? "ドライラン中です。投稿・正解発表を実行しても X には送らず、正本（Sheets）に記録だけ残します（GAS の X_DRY_RUN）。"
-              : "本番投稿モードです。「今すぐ投稿」「正解を発表」は運用中の X アカウントに実際に投稿されます。"}
-            承認済みで出題日がある X の問題が「予約済み」として並びます。
+              ? "X はドライラン中です。投稿・正解発表を実行しても X には送らず、正本（Sheets）に記録だけ残します（GAS の X_DRY_RUN）。"
+              : "X は本番投稿モードです。「今すぐ投稿」「正解を発表」は運用中の X アカウントに実際に投稿されます。"}
+            {!discordConfigured
+              ? " Discord の Bot は未設定です（GAS の DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID）。"
+              : discordDryRun === false
+                ? " Discord は本番投稿モードです（出題チャンネルに実際に投稿されます）。"
+                : " Discord はドライラン中です（GAS の DISCORD_DRY_RUN）。"}
+            承認済みで出題日がある問題が「予約済み」として並びます。
           </p>
         </div>
       )}
@@ -201,7 +219,7 @@ export default function PostsPage() {
             questions={waiting}
             disabled={!canPost}
             onSchedule={actions.schedulePost}
-            liveIssues={isLive ? (q) => liveScheduleIssues(q, data.postJobs) : undefined}
+            liveIssues={isLive ? (q) => liveScheduleIssues(q, data.postJobs, discordConfigured) : undefined}
           />
           <InstagramStock
             questions={igStock}
@@ -253,11 +271,13 @@ export default function PostsPage() {
       <Dialog open={dialog?.kind === "confirmSend"} onOpenChange={(o) => !o && setDialog(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{dialog?.kind === "confirmSend" && dialog.action === "reveal" ? "正解・解説をリプライしますか？" : "X に問題を投稿しますか？"}</DialogTitle>
+            <DialogTitle>{confirmTitle}</DialogTitle>
             <DialogDescription>
-              {dryRun
-                ? "ドライラン中のため X には送らず、記録だけ残します。"
-                : "運用中の X アカウントに実際に投稿されます。取り消すには X 上で削除が必要です。"}
+              {confirmDry
+                ? `ドライラン中のため ${confirmName} には送らず、記録だけ残します。`
+                : confirmPlatform === "discord"
+                  ? "Discord の出題チャンネルに実際に投稿されます。取り消すには Discord 上で削除が必要です。"
+                  : "運用中の X アカウントに実際に投稿されます。取り消すには X 上で削除が必要です。"}
               {activeJob && ` 対象：${activeJob.date} / ${activeJob.questionId}`}
             </DialogDescription>
           </DialogHeader>
@@ -266,7 +286,7 @@ export default function PostsPage() {
               戻る
             </Button>
             <Button
-              variant={dryRun ? "default" : "destructive"}
+              variant={confirmDry ? "default" : "destructive"}
               onClick={() => {
                 if (dialog?.kind === "confirmSend") {
                   if (dialog.action === "postNow") actions.postNow(dialog.job.id)
@@ -275,7 +295,7 @@ export default function PostsPage() {
                 setDialog(null)
               }}
             >
-              {dryRun ? "記録する（ドライラン）" : "投稿する"}
+              {confirmDry ? "記録する（ドライラン）" : "投稿する"}
             </Button>
           </DialogFooter>
         </DialogContent>
