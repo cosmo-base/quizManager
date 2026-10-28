@@ -38,7 +38,8 @@ export function LiveGenerate() {
   const [result, setResult] = useState<GenerateQuestionsResult | null>(null)
 
   const overBudget = !!ai && ai.monthCostJpy >= ai.budgetJpy
-  const disabled = running || !ai?.configured || overBudget || !can("generate") || state.settings.emergencyStop
+  const overDaily = !!ai && ai.dailyCallLimit !== undefined && (ai.callsToday ?? 0) >= ai.dailyCallLimit
+  const disabled = running || !ai?.configured || overBudget || overDaily || !can("generate") || state.settings.emergencyStop
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,8 +120,24 @@ export function LiveGenerate() {
                 <dd className={cn("tabular-nums", overBudget && "text-destructive")}>
                   約 {Math.round(ai.monthCostJpy)} 円 / 上限 {ai.budgetJpy} 円
                 </dd>
+                {ai.dailyCallLimit !== undefined && (
+                  <>
+                    <dt className="text-muted-foreground">今日の呼び出し</dt>
+                    <dd className={cn("tabular-nums", overDaily && "text-destructive")}>
+                      {ai.callsToday ?? 0} / {ai.dailyCallLimit} 回
+                    </dd>
+                  </>
+                )}
+                {ai.daily && (
+                  <>
+                    <dt className="text-muted-foreground">毎朝 9:00 の自動生成</dt>
+                    <dd>{ai.daily.enabled ? `有効（目標 ${ai.daily.target} 問・1 日 ${ai.daily.max} 問まで${ai.daily.verify ? "・チェックあり" : ""}）` : "停止中"}</dd>
+                  </>
+                )}
               </dl>
+              <p className="text-xs text-muted-foreground">Gemini の呼び出しは、生成 1 回でまとめて作り、ファクトチェックは 1 問 1 回です。</p>
               {overBudget && <p className="text-xs text-destructive">今月の上限に達したため実行できません（GAS の AI_MONTHLY_BUDGET_JPY で変えられます）。</p>}
+              {overDaily && <p className="text-xs text-destructive">今日の呼び出しの上限に達したため実行できません（明日またお試しください）。</p>}
               <Button type="submit" disabled={disabled}>
                 <Sparkles className={running ? "animate-pulse" : undefined} />
                 {running ? "生成中…（数十秒かかります）" : "生成して下書きに保存"}
