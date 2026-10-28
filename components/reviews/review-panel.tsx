@@ -13,7 +13,7 @@ import { PlatformMark } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { CHECK, REVIEW_ACTION } from "@/components/questions/detail-tabs"
 import { EditQuestionDialog } from "@/components/questions/detail-dialogs"
-import { DIFFICULTY_LABEL, FACTCHECK_STATUS, IMAGE_STATUS, SOURCE_TIER_LABEL } from "@/lib/constants"
+import { QUESTION_DIFFICULTY_LABEL, FACTCHECK_STATUS, IMAGE_STATUS, SOURCE_TIER_LABEL } from "@/lib/constants"
 import { formatDateTime } from "@/lib/format"
 import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
 import type { Question, QualityScore } from "@/lib/types"
@@ -80,7 +80,7 @@ export function ReviewPanel({ q }: { q: Question }) {
           {q.id}
         </Link>
         <span className="text-xs text-muted-foreground">
-          {categoryName(q.categoryId)} ・ {DIFFICULTY_LABEL[q.difficulty]} ・ v{q.versions.length}
+          {categoryName(q.categoryId)} ・ {QUESTION_DIFFICULTY_LABEL[q.difficulty]} ・ v{q.versions.length}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={(isLive && !aiReady) || !can(state.role, "generate")}>

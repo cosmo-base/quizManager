@@ -72,6 +72,8 @@ export interface FactCheck {
   concerns: string[]
   checkedAt: string | null
   model: string | null
+  /** 実APIモード：難易度・分類が未設定だった問題への AI の案（反映は人が行う） */
+  suggestion?: { difficulty: Exclude<Difficulty, "auto"> | null; category: string | null } | null
 }
 
 export interface QualityScore {
@@ -154,8 +156,10 @@ export interface Question {
   choices: Choice[]
   answer: ChoiceLabel
   explanation: string
+  /** 実APIモードで分類が未設定なら "" */
   categoryId: string
-  difficulty: Exclude<Difficulty, "auto">
+  /** "auto" は未設定（実APIモードで難易度が付いていない問題） */
+  difficulty: Difficulty
   platform: Platform
   timeliness: Exclude<Timeliness, "auto">
   status: QuestionStatus

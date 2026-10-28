@@ -33,8 +33,9 @@ import { EmptyState, SampleTag } from "@/components/shared/states"
 import { QuestionDetailTabs } from "@/components/questions/detail-tabs"
 import { AssignToPlanDialog, EditQuestionDialog } from "@/components/questions/detail-dialogs"
 import { LiveAssignDateDialog } from "@/components/questions/live-assign-dialog"
+import { LiveSuggestion } from "@/components/questions/live-suggestion"
 import { downloadCsv, questionsToCsv, reusableDate } from "@/components/questions/library-utils"
-import { CERT_STATUS, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
+import { CERT_STATUS, DIFFICULTY_LABEL, FACTCHECK_STATUS, QUESTION_STATUS } from "@/lib/constants"
 import { DEMO_TODAY, formatDate } from "@/lib/format"
 import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
 import { can } from "@/lib/validation"
@@ -115,7 +116,7 @@ function QuestionDetail() {
             </div>
             <h1 className="text-xl leading-snug font-semibold text-balance">{q.text}</h1>
             <p className="text-sm text-muted-foreground">
-              {categoryName(q.categoryId)} ・ {q.plannedDate ? `出題日 ${formatDate(q.plannedDate)}` : "出題日未設定"}
+              {categoryName(q.categoryId)} ・ {q.difficulty === "auto" ? "難易度未設定" : DIFFICULTY_LABEL[q.difficulty]} ・ {q.plannedDate ? `出題日 ${formatDate(q.plannedDate)}` : "出題日未設定"}
               {reuseFrom && ` ・ 再出題可能 ${reuseFrom}`}
             </p>
             {isLive && (
@@ -211,6 +212,7 @@ function QuestionDetail() {
           </div>
         )}
       </header>
+      {isLive && <LiveSuggestion q={q} />}
 
       <QuestionDetailTabs
         q={q}

@@ -30,6 +30,9 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   advanced: "上級",
 }
 
+/** 問題に付いた難易度の表示（"auto" は未設定） */
+export const QUESTION_DIFFICULTY_LABEL: Record<Difficulty, string> = { ...DIFFICULTY_LABEL, auto: "未設定" }
+
 export const FORMAT_LABEL: Record<QuestionFormat, string> = {
   auto: "自動",
   name: "名称",

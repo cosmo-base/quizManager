@@ -1,5 +1,5 @@
 import { addMonths } from "@/lib/format"
-import { DIFFICULTY_LABEL, FACTCHECK_STATUS, PLATFORM_LABEL, QUESTION_STATUS } from "@/lib/constants"
+import { QUESTION_DIFFICULTY_LABEL, FACTCHECK_STATUS, PLATFORM_LABEL, QUESTION_STATUS } from "@/lib/constants"
 import { latestJobFor } from "@/lib/validation"
 import type {
   Difficulty,
@@ -46,7 +46,8 @@ export interface LibraryFilters {
   topic: string
   categoryId: string
   platform: "all" | Platform
-  difficulty: "all" | Exclude<Difficulty, "auto">
+  /** "auto" は難易度が未設定の問題（実APIモード） */
+  difficulty: "all" | Difficulty
   status: "all" | QuestionStatus
   from: string
   to: string
@@ -92,7 +93,8 @@ export function filterQuestions(
     if (kw && !`${q.text} ${q.explanation} ${q.choices.map((c) => c.text).join(" ")}`.toLowerCase().includes(kw)) return false
     if (idq && !q.id.toLowerCase().includes(idq) && !q.knowledgeId.toLowerCase().includes(idq)) return false
     if (topic && !q.topic.toLowerCase().includes(topic)) return false
-    if (f.categoryId !== "all" && q.categoryId !== f.categoryId) return false
+    // "none" は分類が未設定（実APIモード）
+    if (f.categoryId !== "all" && q.categoryId !== (f.categoryId === "none" ? "" : f.categoryId)) return false
     if (f.platform !== "all" && q.platform !== f.platform) return false
     if (f.difficulty !== "all" && q.difficulty !== f.difficulty) return false
     if (f.status !== "all" && q.status !== f.status) return false
@@ -168,7 +170,7 @@ export function questionsToCsv(questions: Question[], categoryName: (id: string)
     const choice = (l: string) => q.choices.find((c) => c.label === l)?.text ?? ""
     return [
       q.id, q.knowledgeId, q.topic, q.text, choice("A"), choice("B"), choice("C"), q.answer, q.explanation,
-      PLATFORM_LABEL[q.platform], categoryName(q.categoryId), DIFFICULTY_LABEL[q.difficulty], q.plannedDate,
+      PLATFORM_LABEL[q.platform], categoryName(q.categoryId), QUESTION_DIFFICULTY_LABEL[q.difficulty], q.plannedDate,
       QUESTION_STATUS[q.status].label, FACTCHECK_STATUS[q.factCheck.status].label, s.responses, s.correct,
     ]
   })

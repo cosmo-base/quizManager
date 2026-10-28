@@ -33,7 +33,8 @@ import {
 } from "@/lib/import/question-import"
 import { CHOICE_LABELS, normalizeQuestionText } from "@/lib/question-validate"
 import type { ImportQuestionsResult } from "@/lib/services/gas-contract"
-import type { ChoiceLabel } from "@/lib/types"
+import type { Category, ChoiceLabel, Difficulty } from "@/lib/types"
+import { DIFFICULTY_LABEL } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type Step = "file" | "map" | "review" | "done"
@@ -45,8 +46,8 @@ const PLATFORM_OPTIONS: { value: ImportPlatform; label: string }[] = [
 ]
 const PLATFORM_SHORT: Record<ImportPlatform, string> = { x: "X", discord: "Discord", both: "両方" }
 
-function downloadTemplate() {
-  const blob = new Blob([buildTemplateXlsx() as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+function downloadTemplate(categories: Category[]) {
+  const blob = new Blob([buildTemplateXlsx(categories) as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
   const a = document.createElement("a")
   a.href = URL.createObjectURL(blob)
   a.download = "問題取り込みテンプレート.xlsx"
@@ -70,6 +71,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
   const [result, setResult] = useState<ImportQuestionsResult | null>(null)
 
   const table = sheets[sheetIdx]?.rows ?? []
+  const activeCategories = useMemo(() => data.categories.filter((c) => c.active), [data.categories])
 
   const reset = () => {
     setStep("file")
@@ -129,7 +131,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
   ]
 
   const toReview = () => {
-    const built = buildRows(table, headerRow, columns, fallback)
+    const built = buildRows(table, headerRow, columns, fallback, activeCategories)
     if (!built.length) return setError("見出しより下に取り込める行がありません")
     setError(null)
     setRows(built)
@@ -193,8 +195,8 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
               />
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <span>列：媒体（X・Discord・両方）／問題文／選択肢A・B・C／正解（A・B・C）／解説／出題日（任意）／メモ（任意）</span>
-              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              <span>列：媒体（X・Discord・両方）／問題文／選択肢A・B・C／正解（A・B・C）／解説／難易度・分類・出題日・メモ（任意）</span>
+              <Button variant="outline" size="sm" onClick={() => downloadTemplate(activeCategories)}>
                 <Download />
                 テンプレートをダウンロード
               </Button>
@@ -312,6 +314,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
                   <TableHead className="w-20">媒体</TableHead>
                   <TableHead>問題文</TableHead>
                   <TableHead className="w-12">正解</TableHead>
+                  <TableHead className="w-28">難易度・分類</TableHead>
                   <TableHead className="w-24">出題日</TableHead>
                   <TableHead className="w-56">確認</TableHead>
                   <TableHead className="w-10">
@@ -330,6 +333,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
                       editing={editing === r.rowNo}
                       onEdit={() => setEditing(editing === r.rowNo ? null : r.rowNo)}
                       onChange={(patch) => update(r.rowNo, patch)}
+                      categories={activeCategories}
                     />
                   )
                 })}
@@ -417,13 +421,16 @@ function ReviewRow({
   editing,
   onEdit,
   onChange,
+  categories,
 }: {
   row: ImportRow
   error: string | null
   editing: boolean
   onEdit: () => void
   onChange: (patch: Partial<ImportRow>) => void
+  categories: Category[]
 }) {
+  const categoryLabel = row.category ? categories.find((c) => c.id === row.category)?.name ?? row.category : null
   const id = `import-row-${row.rowNo}`
   return (
     <>
@@ -437,6 +444,15 @@ function ReviewRow({
           <span className="line-clamp-2 whitespace-normal">{row.text || <span className="text-destructive">（空）</span>}</span>
         </TableCell>
         <TableCell>{row.answer ?? <span className="text-destructive">{row.answerRaw || "—"}</span>}</TableCell>
+        <TableCell className="text-xs">
+          {row.difficultyError || row.categoryError ? (
+            <span className="text-destructive">?</span>
+          ) : (
+            <span className="text-muted-foreground">
+              {row.difficulty || categoryLabel ? `${row.difficulty ? DIFFICULTY_LABEL[row.difficulty] : "—"}・${categoryLabel ?? "—"}` : "未設定"}
+            </span>
+          )}
+        </TableCell>
         <TableCell className="tabular-nums">{row.plannedDate || (row.dateError ? <span className="text-destructive">?</span> : "—")}</TableCell>
         <TableCell className="whitespace-normal">
           {!row.include ? (
@@ -455,7 +471,7 @@ function ReviewRow({
       </TableRow>
       {editing && (
         <TableRow id={id} className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={8} className="whitespace-normal">
+          <TableCell colSpan={9} className="whitespace-normal">
             <div className="grid gap-3 py-2 sm:grid-cols-6">
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <Label htmlFor={`${id}-platform`}>媒体</Label>
@@ -472,6 +488,24 @@ function ReviewRow({
                   value={row.answer ?? "A"}
                   onChange={(v) => onChange({ answer: v as ChoiceLabel })}
                   options={CHOICE_LABELS.map((l, i) => ({ value: l, label: `${l}：${row.choices[i] || "（空）"}` }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-3">
+                <Label htmlFor={`${id}-difficulty`}>難易度（任意）</Label>
+                <SimpleSelect<Difficulty>
+                  id={`${id}-difficulty`}
+                  value={row.difficulty ?? "auto"}
+                  onChange={(v) => onChange({ difficulty: v === "auto" ? null : v, difficultyError: undefined })}
+                  options={[{ value: "auto", label: "未設定" }, ...(["beginner", "intermediate", "advanced"] as const).map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }))]}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-3">
+                <Label htmlFor={`${id}-category`}>分類（任意）</Label>
+                <SimpleSelect
+                  id={`${id}-category`}
+                  value={row.category ?? "none"}
+                  onChange={(v) => onChange({ category: v === "none" ? null : v, categoryError: undefined })}
+                  options={[{ value: "none", label: "未設定" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
                 />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-6">

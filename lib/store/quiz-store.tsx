@@ -267,8 +267,7 @@ function useQuizStoreValue() {
         // Discord は Bot が設定済みのときだけ予約に並べる（未設定なら「予約待ち」に理由を出す）
         const allJobs = [...jobs, ...scheduledJobsFor(gasQuestions, jobs, time, discordConfigured ? ["x", "discord"] : ["x"])]
         const responses = gasJobs.map(toResponseSnapshot).filter((r) => r !== null)
-        const categoryId = draft.live.categories[0]?.id ?? ""
-        draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses, categoryId))
+        draft.live.questions = gasQuestions.map((q) => toQuestion(q, allJobs, responses))
         draft.live.postJobs = allJobs
         draft.liveStatus.dryRun = status.dryRun
         draft.liveStatus.discordDryRun = typeof status.discordDryRun === "boolean" ? status.discordDryRun : null
@@ -1724,6 +1723,6 @@ export function useCategoryName() {
   const { data } = useQuiz()
   return useMemo(() => {
     const map = new Map(data.categories.map((c) => [c.id, c.name]))
-    return (id: string) => (id === "auto" ? "自動" : map.get(id) ?? id)
+    return (id: string) => (id === "auto" ? "自動" : id === "" ? "分類未設定" : map.get(id) ?? id)
   }, [data.categories])
 }

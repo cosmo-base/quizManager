@@ -12,7 +12,7 @@ function toSources(fc: GasFactCheck | null | undefined): Source[] {
   return fc.sources.map((s, i) => ({ id: `${fc.version}-${i}`, title: s.title || s.url, publisher: s.title, url: s.url, tier: 4, excerpt: "", checkedAt: fc.checkedAt ?? "" }))
 }
 
-export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseSnapshot[], categoryId: string): Question {
+export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseSnapshot[]): Question {
   const snapshot = { text: g.text, choices: g.choices, answer: g.answer, explanation: g.explanation }
   const savedAt = g.savedAt ?? new Date(0).toISOString()
   return {
@@ -23,13 +23,14 @@ export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseS
     choices: g.choices,
     answer: g.answer,
     explanation: g.explanation,
-    categoryId,
-    difficulty: "beginner",
+    // 未設定は分類 ""・難易度 "auto"
+    categoryId: g.category ?? "",
+    difficulty: g.difficulty ?? "auto",
     platform: g.platform,
     timeliness: "evergreen",
     status: g.status,
     plannedDate: g.plannedDate,
-    factCheck: g.factCheck ? { status: g.factCheck.status, items: g.factCheck.items, concerns: g.factCheck.concerns, checkedAt: g.factCheck.checkedAt, model: g.factCheck.model } : { ...PENDING_FACT_CHECK, items: [], concerns: [] },
+    factCheck: g.factCheck ? { status: g.factCheck.status, items: g.factCheck.items, concerns: g.factCheck.concerns, checkedAt: g.factCheck.checkedAt, model: g.factCheck.model, suggestion: g.factCheck.suggestion ?? null } : { ...PENDING_FACT_CHECK, items: [], concerns: [] },
     duplicate: { level: "none", similar: [], reusableFrom: null },
     quality: { interest: 0, answerability: 0, choiceValidity: 0, learning: 0, platformFit: 0 },
     sources: toSources(g.factCheck),

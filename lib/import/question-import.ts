@@ -2,7 +2,7 @@
 // 媒体が「両方」の行は、X 用と Discord 用の 2 問として登録する（それぞれ別の ID・別の出題日になる）。
 import { strToU8, zipSync } from "fflate"
 import type { ImportQuestionInput } from "@/lib/services/gas-contract"
-import type { ChoiceLabel, Platform } from "@/lib/types"
+import type { Category, ChoiceLabel, Difficulty, Platform } from "@/lib/types"
 import { CHOICE_LABELS, normalizeQuestionText, questionError } from "@/lib/question-validate"
 
 export type ImportPlatform = Exclude<Platform, "instagram"> | "both"
@@ -15,8 +15,10 @@ export const FIELDS = [
   { key: "answer", label: "正解", required: true, aliases: ["正解", "答え", "解答", "正答", "answer", "correct"] },
   { key: "explanation", label: "解説", required: true, aliases: ["解説", "説明", "解説文", "explanation"] },
   { key: "platform", label: "媒体", required: false, aliases: ["媒体", "投稿先", "platform", "sns"] },
+  { key: "difficulty", label: "難易度", required: false, aliases: ["難易度", "難しさ", "レベル", "difficulty", "level"] },
+  { key: "category", label: "分類", required: false, aliases: ["分類", "カテゴリ", "カテゴリー", "ジャンル", "category", "genre"] },
   { key: "plannedDate", label: "出題日", required: false, aliases: ["出題日", "投稿日", "日付", "予定日", "出題予定日", "投稿予定日", "配信日", "date"] },
-  { key: "note", label: "メモ", required: false, aliases: ["メモ", "備考", "note", "memo", "出典", "カテゴリ", "テーマ"] },
+  { key: "note", label: "メモ", required: false, aliases: ["メモ", "備考", "note", "memo", "出典", "テーマ"] },
 ] as const
 
 export type FieldKey = (typeof FIELDS)[number]["key"]
@@ -89,6 +91,28 @@ export function parsePlatform(raw: string, fallback: ImportPlatform): ImportPlat
   return null
 }
 
+type SetDifficulty = Exclude<Difficulty, "auto">
+
+/** 難易度の列：初級・中級・上級（1〜3、やさしい・ふつう・難しい、beginner など）。空なら未設定 */
+export function parseDifficulty(raw: string): { value: SetDifficulty | null; error?: string } {
+  const v = norm(raw)
+  if (!v) return { value: null }
+  const map: Record<string, SetDifficulty> = {
+    初級: "beginner", 初: "beginner", 易: "beginner", やさしい: "beginner", かんたん: "beginner", 簡単: "beginner", "1": "beginner", "★": "beginner", beginner: "beginner", easy: "beginner",
+    中級: "intermediate", 中: "intermediate", ふつう: "intermediate", 普通: "intermediate", "2": "intermediate", "★★": "intermediate", intermediate: "intermediate", normal: "intermediate", medium: "intermediate",
+    上級: "advanced", 上: "advanced", 難: "advanced", 難しい: "advanced", むずかしい: "advanced", "3": "advanced", "★★★": "advanced", advanced: "advanced", hard: "advanced",
+  }
+  return map[v] ? { value: map[v] } : { value: null, error: `難易度「${raw}」が読めません（初級・中級・上級のどれか）` }
+}
+
+/** 分類の列：画面の分類の名前か ID。空なら未設定 */
+export function parseCategory(raw: string, categories: Category[]): { value: string | null; error?: string } {
+  const v = norm(raw)
+  if (!v) return { value: null }
+  const hit = categories.find((c) => norm(c.name) === v || norm(c.id) === v)
+  return hit ? { value: hit.id } : { value: null, error: `分類「${raw}」が読めません（${categories.map((c) => c.name).join("・")} のどれか）` }
+}
+
 const pad = (n: number) => String(n).padStart(2, "0")
 
 /** 出題日の列：Excel の日付（シリアル値）、2026/10/29・2026-10-29・2026年10月29日 など → yyyy-MM-dd */
@@ -126,12 +150,17 @@ export interface ImportRow {
   platformRaw: string
   plannedDate: string
   dateError?: string
+  difficulty: SetDifficulty | null
+  difficultyError?: string
+  /** 分類の ID */
+  category: string | null
+  categoryError?: string
   note: string
   /** 画面で外した行は登録しない */
   include: boolean
 }
 
-export function buildRows(rows: string[][], headerRow: number, columns: ColumnMap, fallbackPlatform: ImportPlatform): ImportRow[] {
+export function buildRows(rows: string[][], headerRow: number, columns: ColumnMap, fallbackPlatform: ImportPlatform, categories: Category[]): ImportRow[] {
   const cell = (r: string[], key: FieldKey) => {
     const i = columns[key]
     return i === null ? "" : String(r[i] ?? "").trim()
@@ -145,6 +174,8 @@ export function buildRows(rows: string[][], headerRow: number, columns: ColumnMa
     const answerRaw = cell(r, "answer")
     const platformRaw = cell(r, "platform")
     const date = parseDate(cell(r, "plannedDate"))
+    const difficulty = parseDifficulty(cell(r, "difficulty"))
+    const category = parseCategory(cell(r, "category"), categories)
     out.push({
       rowNo,
       text: cell(r, "text"),
@@ -156,6 +187,10 @@ export function buildRows(rows: string[][], headerRow: number, columns: ColumnMa
       platformRaw,
       plannedDate: date.value ?? "",
       dateError: date.error,
+      difficulty: difficulty.value,
+      difficultyError: difficulty.error,
+      category: category.value,
+      categoryError: category.error,
       note: cell(r, "note"),
       include: true,
     })
@@ -170,6 +205,8 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
   if (row.platform === null) return `媒体「${row.platformRaw}」が読めません（X・Discord・両方のどれか）`
   if (row.answer === null) return row.answerRaw ? `正解「${row.answerRaw}」が読めません（A・B・C のどれか）` : "正解がありません"
   if (row.dateError) return row.dateError
+  if (row.difficultyError) return row.difficultyError
+  if (row.categoryError) return row.categoryError
   for (const p of targetPlatforms(row.platform)) {
     const e = questionError({ text: row.text, choices: row.choices, answer: row.answer, explanation: row.explanation }, p)
     if (e) return (row.platform === "both" ? `${p === "x" ? "X" : "Discord"} 用：` : "") + e
@@ -193,6 +230,8 @@ export function toImportInputs(row: ImportRow, fileName: string): ImportQuestion
     explanation: row.explanation,
     platform: p,
     plannedDate: row.plannedDate || null,
+    difficulty: row.difficulty,
+    category: row.category,
     note: [`Excel から登録（${fileName} ${row.rowNo} 行目）`, row.note].filter(Boolean).join(" / "),
   }))
 }
@@ -203,21 +242,33 @@ export function toImportInputs(row: ImportRow, fileName: string): ImportQuestion
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
+/** 媒体（A 列）・難易度（H 列）・分類（I 列）のプルダウン */
+function validations(categories: Category[]): string {
+  const list = (ref: string, items: string[]) =>
+    `<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="${ref}"><formula1>"${esc(items.join(","))}"</formula1></dataValidation>`
+  const items = [
+    list("A2:A1000", ["X", "Discord", "両方"]),
+    list("H2:H1000", ["初級", "中級", "上級"]),
+    ...(categories.length ? [list("I2:I1000", categories.map((c) => c.name))] : []),
+  ]
+  return `<dataValidations count="${items.length}">${items.join("")}</dataValidations>`
+}
+
 const TEMPLATE_ROWS = [
-  ["媒体", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "出題日", "メモ"],
-  ["X", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "", "例：X 用"],
-  ["両方", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "", "例：X と Discord の両方に登録"],
+  ["媒体", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "難易度", "分類", "出題日", "メモ"],
+  ["X", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "初級", "天文", "", "例：X 用"],
+  ["両方", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "初級", "宇宙基礎", "", "例：X と Discord の両方に登録"],
 ]
 
-/** 取り込み用のテンプレートを .xlsx で作る（文字はすべてインライン文字列） */
-export function buildTemplateXlsx(): Uint8Array {
+/** 取り込み用のテンプレートを .xlsx で作る（文字はすべてインライン文字列）。媒体・難易度・分類は Excel のプルダウンで選べる */
+export function buildTemplateXlsx(categories: Category[]): Uint8Array {
   const col = (i: number) => String.fromCharCode(65 + i)
   const rowsXml = TEMPLATE_ROWS.map(
     (r, ri) =>
       `<row r="${ri + 1}">${r.map((v, ci) => (v ? `<c r="${col(ci)}${ri + 1}" t="inlineStr"${ri === 0 ? ' s="1"' : ""}><is><t>${esc(v)}</t></is></c>` : "")).join("")}</row>`,
   ).join("")
-  const widths = [8, 50, 16, 16, 16, 6, 50, 12, 24]
-  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${rowsXml}</sheetData></worksheet>`
+  const widths = [8, 50, 16, 16, 16, 6, 50, 8, 12, 12, 24]
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${rowsXml}</sheetData>${validations(categories)}</worksheet>`
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`
   return zipSync({
     "[Content_Types].xml": strToU8(
