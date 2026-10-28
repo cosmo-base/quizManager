@@ -1,6 +1,6 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
 import type { Role } from "@/lib/types"
-import type { GasAutomationStatus, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, SaveQuestionInput } from "./gas-contract"
+import type { GasAutomationStatus, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
   scope: AIInsight["scope"]
@@ -41,6 +41,8 @@ export interface QuizBackend {
   setAutomationEnabled(enabled: boolean): Promise<{ enabled: boolean }>
   /** Gemini で問題を作り、下書きで正本に保存する */
   generateQuestions(input: GenerateQuestionsInput): Promise<GenerateQuestionsResult>
+  /** Excel・CSV から読み込んだ問題を下書きでまとめて登録する */
+  importQuestions(rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult>
   /** ログインした人と、その権限 */
   getMe(): Promise<GasMe>
   requestRole(role: Role, note: string): Promise<{ pendingRequest: GasRoleRequest }>

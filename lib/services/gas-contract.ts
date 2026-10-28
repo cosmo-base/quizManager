@@ -19,6 +19,7 @@ export type GasAction =
   | "generateQuestions"
   | "listInsights"
   | "recordManualPost"
+  | "importQuestions"
   | "getMe"
   | "requestRole"
   | "listUsers"
@@ -162,6 +163,23 @@ export interface SaveQuestionInput {
   plannedDate: string | null
   status: QuestionStatus
   note?: string
+}
+
+/** importQuestions：Excel・CSV から読み込んだ問題を下書きでまとめて登録する（1 回 100 問まで） */
+export interface ImportQuestionInput {
+  /** 画面で振った番号（結果をどの行のものか対応させる） */
+  ref: string
+  text: string
+  choices: Choice[]
+  answer: ChoiceLabel
+  explanation: string
+  platform: Exclude<Platform, "instagram">
+  plannedDate: string | null
+  note?: string
+}
+export interface ImportQuestionsResult {
+  saved: { ref: string; id: string; platform: Platform }[]
+  rejected: { ref: string; reason: string }[]
 }
 
 /** 投稿の対象（冪等キーは「日付:媒体:種別」） */

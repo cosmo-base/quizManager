@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Columns3, Download, LayoutGrid, Plus, Rows3 } from "lucide-react"
+import { Columns3, Download, FileSpreadsheet, LayoutGrid, Plus, Rows3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState, LiveEmptyState } from "@/components/shared/states"
 import { LibraryFilterBar } from "@/components/questions/library-filters"
 import { LiveQuestionDialog } from "@/components/questions/live-question-dialog"
+import { ImportQuestionsDialog } from "@/components/questions/import-dialog"
 import { COLUMNS, LibraryCards, LibraryTable, type ColumnKey } from "@/components/questions/library-views"
 import {
   downloadCsv,
@@ -30,6 +31,7 @@ const DEFAULT_HIDDEN: ColumnKey[] = ["answer", "reuse"]
 export default function QuestionsPage() {
   const { state, data, can } = useQuiz()
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const categoryName = useCategoryName()
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS)
   const [view, setView] = useState<"table" | "cards">("table")
@@ -73,10 +75,16 @@ export default function QuestionsPage() {
   const isLive = state.settings.dataMode === "live"
   const isLiveEmpty = isLive && data.questions.length === 0
   const createButton = isLive && (
-    <Button onClick={() => setCreating(true)} disabled={!can("edit")}>
-      <Plus />
-      問題を作成
-    </Button>
+    <>
+      <Button onClick={() => setCreating(true)} disabled={!can("edit")}>
+        <Plus />
+        問題を作成
+      </Button>
+      <Button variant="outline" onClick={() => setImporting(true)} disabled={!can("edit")}>
+        <FileSpreadsheet />
+        Excel から登録
+      </Button>
+    </>
   )
 
   return (
@@ -95,13 +103,14 @@ export default function QuestionsPage() {
         }
       />
       {creating && <LiveQuestionDialog open onOpenChange={setCreating} />}
+      {importing && <ImportQuestionsDialog open onOpenChange={setImporting} />}
       {isLiveEmpty ? (
         <LiveEmptyState
           what="問題"
           description={
             state.liveStatus.loading
               ? "正本（Google Sheets）から読み込んでいます…"
-              : "正本にまだ問題がないか、Google でログインしていません。ログインして「問題を作成」から登録してください。"
+              : "正本にまだ問題がないか、Google でログインしていません。ログインして「問題を作成」か「Excel から登録」から登録してください。"
           }
         />
       ) : (

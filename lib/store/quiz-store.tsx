@@ -49,7 +49,7 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GenerateQuestionsInput, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
 import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
@@ -148,6 +148,8 @@ function liveData(): AppData {
 
 const nowIso = () => new Date().toISOString()
 const uid = (p: string) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase()
+/** 問題の取り込みで 1 回に GAS へ送る数（GAS 側の上限と同じ） */
+const IMPORT_CHUNK = 100
 
 function nextSeq(questions: Question[]) {
   return questions.reduce((m, q) => Math.max(m, Number(q.id.split("-").at(-1)) || 0), 0) + 1
@@ -320,6 +322,27 @@ function useQuizStoreValue() {
     if (res.saved.length) toast.success(`${res.saved.length} 問を下書きで保存しました`, { description: res.rejected.length ? `${res.rejected.length} 問は検査で除外しました` : undefined })
     else toast.error("保存できる問題がありませんでした", { description: res.rejected[0]?.reason })
     return res
+  }
+
+  /** Excel・CSV から読み込んだ問題を下書きで正本に登録する（100 問ずつ送る） */
+  const importLiveQuestions = async (rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult | null> => {
+    if (!guard("問題の取り込み", "edit", { live: true })) return null
+    const all: ImportQuestionsResult = { saved: [], rejected: [] }
+    for (let i = 0; i < rows.length; i += IMPORT_CHUNK) {
+      const chunk = rows.slice(i, i + IMPORT_CHUNK)
+      const res = await callBackend("問題の取り込み", (b) => b.importQuestions(chunk, fileName))
+      // 途中で失敗したら、残りは送らずに未登録として返す（登録済みの分は正本に残っている）
+      if (!res) {
+        rows.slice(i).forEach((r) => all.rejected.push({ ref: r.ref, reason: "送信に失敗したため登録していません" }))
+        break
+      }
+      all.saved.push(...res.saved)
+      all.rejected.push(...res.rejected)
+    }
+    await refreshLive()
+    if (all.saved.length) toast.success(`${all.saved.length} 問を下書きで登録しました`, { description: all.rejected.length ? `${all.rejected.length} 問は登録できませんでした` : undefined })
+    else if (all.rejected.length) toast.error("登録できる問題がありませんでした", { description: all.rejected[0]?.reason })
+    return all
   }
 
   /** ファクトチェック（Gemini＋Google 検索）。結果は正本の fact_checks に記録される */
@@ -1662,6 +1685,7 @@ function useQuizStoreValue() {
     resetDemo,
     refreshLive,
     saveLiveQuestion,
+    importLiveQuestions,
     setLiveAutomation,
     liveGenerate,
     assignLiveDate,

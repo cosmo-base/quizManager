@@ -4,7 +4,7 @@
 // 未実装の処理は必ず NotConnectedError を投げ、UI上で成功を偽装しないこと。
 import type { AIInsight, Integration, PostJob, Role } from "@/lib/types"
 import { callGas } from "./gas-client"
-import type { GasAutomationStatus, GasFactCheck, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsResult, PostTarget, PublishPostResult } from "./gas-contract"
+import type { GasAutomationStatus, GasFactCheck, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsResult, ImportQuestionsResult, PostTarget, PublishPostResult } from "./gas-contract"
 import { NotConnectedError, type QuizBackend } from "./types"
 
 const notConnected = (operation: string, hint: string) => () => Promise.reject(new NotConnectedError(operation, hint))
@@ -38,6 +38,7 @@ export const liveBackend: QuizBackend = {
   getAutomationStatus: () => callGas<GasAutomationStatus>("getAutomationStatus", {}, "自動投稿の状態の取得"),
   setAutomationEnabled: (enabled) => callGas<{ enabled: boolean }>("setAutomationEnabled", { enabled }, "自動投稿の切り替え"),
   generateQuestions: (input) => callGas<GenerateQuestionsResult>("generateQuestions", input, "AI問題生成"),
+  importQuestions: (rows, fileName) => callGas<ImportQuestionsResult>("importQuestions", { rows, fileName }, "問題の取り込み"),
   getMe: () => callGas<GasMe>("getMe", {}, "ユーザー情報の取得"),
   requestRole: (role, note) => callGas<{ pendingRequest: GasRoleRequest }>("requestRole", { role, note }, "権限の申請"),
   listUsers: () => callGas<GasUser[]>("listUsers", {}, "ユーザー一覧の取得"),
