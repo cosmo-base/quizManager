@@ -63,7 +63,7 @@ export function LiveSystemSettings() {
     { label: "予備問題の最低数（媒体ごと）", value: `${config.spareMinStock} 問`, tone: "neutral", keyName: "SPARE_MIN_STOCK", note: "下回ると 21:00 にメールで知らせます" },
     { label: "運営用チャンネルへの通知", value: config.opsWebhook ? "設定済み" : "未設定（メールで代わり）", tone: config.opsWebhook ? "success" : "warning", keyName: "DISCORD_OPS_WEBHOOK_URL", note: "18:00 の確認依頼・権限の申請・AI 自動生成のお知らせ" },
     { label: "通知メール", value: config.notifyEmail ? "設定済み" : "未設定", tone: config.notifyEmail ? "success" : "warning", keyName: "NOTIFY_EMAIL", note: "投稿の失敗・点検の結果・予備の不足など" },
-    { label: "Supabase のハートビート", value: config.supabaseHeartbeat ? "設定済み" : "未設定", tone: config.supabaseHeartbeat ? "success" : "warning", keyName: "SUPABASE_URL / SUPABASE_ANON_KEY", note: "06:00 の起動に使う Supabase が止まらないようにします" },
+    { label: "Supabase のハートビート", value: config.supabaseHeartbeat ? "設定済み" : "未設定", tone: config.supabaseHeartbeat ? "success" : "warning", keyName: "SUPABASE_URL / SUPABASE_ANON_KEY", note: "06:00 の起動に使う Supabase が止まらないようにします（SUPABASE_URL が空なら、Discord の中継の URL から求めます）" },
     { label: "自動処理の時刻", value: automation ? "05:45・06:00・06:10・09:00・12:00・18:00・21:00" : "—", tone: "neutral", keyName: null, note: "時刻を変えるときは GAS の Daily.js と Supabase の pg_cron を変えます" },
   ]
   const daily = ai.daily

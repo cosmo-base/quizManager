@@ -225,9 +225,14 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
 }
 
 /** 登録は止めない注意：正本によく似た問題がある（同じ問題文は rowError で止める） */
-export function rowWarning(row: ImportRow, existing: { id: string; text: string }[]): string | null {
-  const hits = findSimilar(row.text, existing, { min: SIMILAR_WARN, limit: 1 })
-  return hits.length ? `よく似た問題があります：${hits[0].item.id}（近さ ${Math.round(hits[0].score * 100)}%）` : null
+export function rowWarning(row: ImportRow, existing: { id: string; text: string; answer: ChoiceLabel; choices: { label: ChoiceLabel; text: string }[] }[]): string | null {
+  const hits = findSimilar(row.text, existing, { min: SIMILAR_WARN, limit: 3 })
+  if (!hits.length) return null
+  const answerText = row.answer ? normalizeQuestionText(row.choices[CHOICE_LABELS.indexOf(row.answer)] ?? "") : ""
+  const same = hits.find((h) => answerText && normalizeQuestionText(h.item.choices.find((c) => c.label === h.item.answer)?.text ?? "") === answerText)
+  return same
+    ? `同じ問題の可能性があります：${same.item.id}（近さ ${Math.round(same.score * 100)}%・正解も同じ）`
+    : `問題文が近い問題があります：${hits[0].item.id}（近さ ${Math.round(hits[0].score * 100)}%）`
 }
 
 /** 登録する問題（「両方」は X 用・Discord 用の 2 つ） */

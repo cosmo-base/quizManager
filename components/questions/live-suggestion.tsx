@@ -12,6 +12,7 @@ import Link from "next/link"
 import { formatDateTime } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
 import { findSimilar, SIMILAR_WARN } from "@/lib/similarity"
+import { normalizeQuestionText } from "@/lib/question-validate"
 import { cn } from "@/lib/utils"
 
 /** 承認済みなどの問題を保存するには承認の権限が要る（GAS の saveQuestion と同じ） */
@@ -77,23 +78,30 @@ export function LiveReturnNotice({ q }: { q: Question }) {
   )
 }
 
-/** よく似た問題がほかにあれば知らせる（登録・承認は止めない） */
-export function SimilarWarning({ text, exclude, className }: { text: string; exclude?: string; className?: string }) {
+/**
+ * よく似た問題がほかにあれば知らせる（登録・承認は止めない）。
+ * 問題文の近さだけだと「一番大きい／小さい惑星」のような別の問題も出るので、正解も同じなら「同じ問題かも」と強めに出す。
+ */
+export function SimilarWarning({ text, answerText, exclude, className }: { text: string; answerText?: string; exclude?: string; className?: string }) {
   const { data } = useQuiz()
   const hits = text.trim().length >= 6 ? findSimilar(text, data.questions, { exclude, min: SIMILAR_WARN, limit: 3 }) : []
   if (hits.length === 0) return null
+  const sameAnswer = (h: (typeof hits)[number]) => !!answerText?.trim() && normalizeQuestionText(correctText(h.item)) === normalizeQuestionText(answerText)
+  const strong = hits.some(sameAnswer)
   return (
-    <p className={cn("text-xs text-warning", className)}>
-      よく似た問題があります：
+    <p className={cn("text-xs", strong ? "text-destructive" : "text-warning", className)}>
+      {strong ? "同じ問題の可能性があります（問題文が近く、正解も同じ）：" : "問題文が近い問題があります（別の問題なら問題ありません）："}
       {hits.map((h, i) => (
         <span key={h.item.id}>
           {i > 0 && "、"}
           <Link href={questionHref(h.item.id)} className="underline" target="_blank">
             {h.item.id}
           </Link>
-          （近さ {Math.round(h.score * 100)}%）
+          （近さ {Math.round(h.score * 100)}%{sameAnswer(h) ? "・正解も同じ" : ""}）
         </span>
       ))}
     </p>
   )
 }
+
+const correctText = (q: Question) => q.choices.find((c) => c.label === q.answer)?.text ?? ""

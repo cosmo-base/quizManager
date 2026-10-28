@@ -127,6 +127,8 @@ export interface GenerateQuestionsInput {
   difficulty?: "auto" | "beginner" | "intermediate" | "advanced"
   instructions?: string
   plannedDate?: string
+  /** 分類の ID。指定するとすべてその分類で作る */
+  category?: string
 }
 export interface GenerateQuestionsResult {
   saved: { id: string; version: number; text: string }[]

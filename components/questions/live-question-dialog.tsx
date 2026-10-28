@@ -107,6 +107,9 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-status">状態</Label>
               <SimpleSelect id="lq-status" value={status} onChange={setStatus} options={statusOptions} />
+              {status === "approved" && (!q || q.status !== "approved") && (
+                <span className="text-xs text-muted-foreground">承認済みにするには、この内容でのファクトチェック（要確認以上）が要ります</span>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-difficulty">難易度</Label>
@@ -124,7 +127,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lq-text">問題文</Label>
             <Textarea id="lq-text" value={text} onChange={(e) => setText(e.target.value)} rows={3} />
-            <SimilarWarning text={text} exclude={q?.id} />
+            <SimilarWarning text={text} answerText={choices[LABELS.indexOf(answer)]} exclude={q?.id} />
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">

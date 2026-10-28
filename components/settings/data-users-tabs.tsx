@@ -39,7 +39,14 @@ export function DataSettingsTab({ disabled }: { disabled: boolean }) {
       {LIVE_AVAILABLE ? (
         // 本番のビルドは常に正本（GAS・Sheets）のデータ。デモモードは開発用のビルドだけ
         <SettingsCard title="データ" description="正本（Google Sheets）のデータを表示しています。読み書きは GAS を通して行い、権限も GAS が確かめます。">
-          <IntegrationList keys={["supabase", "sheets", "storage"]} />
+          {/* 本番で使うのは正本の Sheets と、06:00 の起動・Discord の中継に使う Supabase だけ（画像ストレージは使っていない） */}
+          <IntegrationList
+            keys={["sheets", "supabase"]}
+            overrides={{
+              sheets: { name: "正本（Google Sheets）", note: "GAS から正本のスプレッドシートを開けるかを確かめます" },
+              supabase: { name: "Supabase（06:00 の起動・Discord の中継）", note: "GAS から Supabase に届くかを確かめます（毎日 12:00 のハートビートと同じ）" },
+            }}
+          />
         </SettingsCard>
       ) : (
         <SettingsCard title="データモード" description="デモモードではサンプルデータと擬似処理のみを使い、外部APIは呼び出しません。">

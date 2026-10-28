@@ -418,6 +418,11 @@ function useQuizStoreValue() {
     if (!guard("状態の変更", "approve", { live: true })) return false
     const q = stateRef.current.live.questions.find((x) => x.id === id)
     if (!q) return false
+    // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる）
+    if (status === "approved" && (q.factCheck.status === "pending" || q.factCheck.status === "failed")) {
+      toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "先に再検証を実行してください" })
+      return false
+    }
     void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status, note })
     return true
   }

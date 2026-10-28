@@ -85,9 +85,12 @@ const STATUS: Record<Integration["status"], { tone: Tone; label: string }> = {
   unverified: { tone: "warning", label: "技術検証中" },
 }
 
-export function IntegrationList({ keys }: { keys: Integration["key"][] }) {
+/** overrides：本番で名前や説明を差し替える（説明は接続テスト前だけ） */
+export function IntegrationList({ keys, overrides }: { keys: Integration["key"][]; overrides?: Partial<Record<Integration["key"], { name?: string; note?: string }>> }) {
   const { data, actions } = useQuiz()
-  const items = data.integrations.filter((i) => keys.includes(i.key))
+  const items = data.integrations
+    .filter((i) => keys.includes(i.key))
+    .map((i) => ({ ...i, name: overrides?.[i.key]?.name ?? i.name, note: !i.lastCheckedAt && overrides?.[i.key]?.note ? overrides[i.key]!.note! : i.note }))
   return (
     <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
       {items.map((i) => (

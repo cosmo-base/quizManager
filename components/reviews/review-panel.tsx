@@ -51,10 +51,10 @@ export function ReviewPanel({ q }: { q: Question }) {
 
   const canApprove = can(state.role, "approve")
   const canEdit = can(state.role, "edit")
-  // 実APIモードは事実確認をまだ正本につないでいないため、検証の有無で承認を止めない
+  // 未検証・検証NG は承認できない（本番も同じ。GAS でも確かめる）。要確認は懸念点を読んだうえで承認できる
   const isLive = state.settings.dataMode === "live"
   const aiReady = !!state.liveStatus.ai?.configured
-  const unverified = !isLive && (q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed")
+  const unverified = q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed"
 
   const reverify = async () => {
     setVerifying(true)
@@ -105,7 +105,12 @@ export function ReviewPanel({ q }: { q: Question }) {
             <Pencil />
             修正
           </Button>
-          <Button size="sm" onClick={() => actions.approve(q.id)} disabled={!canApprove || unverified || q.status !== "review"}>
+          <Button
+            size="sm"
+            onClick={() => actions.approve(q.id)}
+            disabled={!canApprove || unverified || q.status !== "review"}
+            title={unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
+          >
             <Check />
             承認
           </Button>
@@ -117,7 +122,7 @@ export function ReviewPanel({ q }: { q: Question }) {
           {isLive && <LiveReturnNotice q={q} />}
           <Block title="問題">
             <p className="text-base leading-relaxed text-pretty">{q.text}</p>
-            {isLive && <SimilarWarning text={q.text} exclude={q.id} className="mt-2" />}
+            {isLive && <SimilarWarning text={q.text} answerText={q.choices.find((c) => c.label === q.answer)?.text} exclude={q.id} className="mt-2" />}
           </Block>
           <Block title="選択肢">
             <ol className="flex flex-col gap-1.5">
