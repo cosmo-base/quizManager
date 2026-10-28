@@ -1,11 +1,14 @@
 "use client"
 
-import { useMemo } from "react"
+import Link from "next/link"
+import { useMemo, useState } from "react"
 import { ExternalLink } from "lucide-react"
 import type { ChoiceLabel, Platform } from "@/lib/types"
-import { useQuiz, useCategoryName } from "@/lib/store/quiz-store"
+import { useQuiz, useCategoryName, useToday } from "@/lib/store/quiz-store"
 import { DIFFICULTY_LABEL, PLATFORM_LABEL } from "@/lib/constants"
-import { formatCount } from "@/lib/format"
+import { addDays, formatCount, formatDate, formatPercent } from "@/lib/format"
+import { questionHref } from "@/lib/routes"
+import { SimpleSelect } from "@/components/shared/simple-select"
 import { PageHeader } from "@/components/shared/page-header"
 import { LiveEmptyState, SampleTag } from "@/components/shared/states"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -26,9 +29,29 @@ const METRICS: { name: string; where: "here" | "dashboard" | "missing"; note: st
   { name: "CB流入・転換率", where: "missing", note: "UTM付きリンクとCB側の計測タグ追加が必要" },
 ]
 
+type Period = "7" | "30" | "90" | "all"
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: "7", label: "直近7日" },
+  { value: "30", label: "直近30日" },
+  { value: "90", label: "直近90日" },
+  { value: "all", label: "すべて" },
+]
+
 export default function KpiPage() {
   const { data, state } = useQuiz()
   const categoryName = useCategoryName()
+  const today = useToday()
+  const isLive = state.settings.dataMode === "live"
+  // 実APIモード：分類・難易度は正本に無いので、期間で絞り、問題ごとの結果を出す
+  const [period, setPeriod] = useState<Period>("30")
+  const since = period === "all" ? null : addDays(today, -Number(period) + 1)
+  const jobDate = useMemo(() => new Map(data.postJobs.map((j) => [j.id, j.date])), [data.postJobs])
+  const inPeriod = (postJobId: string) => {
+    if (!isLive || !since) return true
+    const d = jobDate.get(postJobId)
+    return !!d && d >= since && d <= today
+  }
+  const platforms: Platform[] = isLive ? (state.liveStatus.discordConfigured ? ["x", "discord"] : ["x"]) : ["x", "discord", "instagram"]
 
   const kpi = useMemo(() => {
     const total = empty()
@@ -38,11 +61,12 @@ export default function KpiPage() {
     const positions: Record<ChoiceLabel, number> = { A: 0, B: 0, C: 0 }
 
     for (const q of data.questions) {
-      if (!q.responses.length) continue
+      const responses = q.responses.filter((r) => inPeriod(r.postJobId))
+      if (!responses.length) continue
       positions[q.answer] += 1
       const cat = byCategory.get(q.categoryId) ?? empty()
       const diff = byDifficulty.get(q.difficulty) ?? { posts: 0, responses: 0 }
-      for (const r of q.responses) {
+      for (const r of responses) {
         const targets = [total, byPlatform[r.platform], cat]
         for (const t of targets) {
           t.posts += 1
@@ -59,9 +83,18 @@ export default function KpiPage() {
       byDifficulty.set(q.difficulty, diff)
     }
     return { total, byPlatform, byCategory, byDifficulty, positions }
-  }, [data.questions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.questions, since, today, jobDate, isLive])
 
-  const isLive = state.settings.dataMode === "live"
+  /** 問題ごとの結果（新しい順）。実APIモードで使う */
+  const rows = useMemo(
+    () =>
+      data.questions
+        .flatMap((q) => q.responses.filter((r) => inPeriod(r.postJobId)).map((r) => ({ q, r, date: jobDate.get(r.postJobId) ?? "" })))
+        .sort((a, b) => b.date.localeCompare(a.date) || a.r.platform.localeCompare(b.r.platform)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data.questions, since, today, jobDate, isLive],
+  )
   const positionTotal = kpi.positions.A + kpi.positions.B + kpi.positions.C
 
   return (
@@ -82,8 +115,15 @@ export default function KpiPage() {
         }
       />
 
+      {isLive && (
+        <div className="flex items-center gap-2">
+          <SimpleSelect value={period} onChange={setPeriod} options={PERIOD_OPTIONS} aria-label="期間" className="w-36" />
+          <span className="text-xs text-muted-foreground">出題日で絞り込みます（回答結果は正本の Sheets の記録）</span>
+        </div>
+      )}
+
       {isLive && kpi.total.posts === 0 ? (
-        <LiveEmptyState what="回答実績" />
+        <LiveEmptyState what="回答実績" description={period === "all" ? "まだ回答結果がありません。投稿管理で「結果を取得」するか、毎朝の自動処理で集計されると表示されます。" : "この期間の回答結果はありません。期間を広げてください。"} />
       ) : (
         <>
           <section aria-label="主要指標" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -115,10 +155,10 @@ export default function KpiPage() {
               </h2>
               <SimpleBarChart
                 label="回答数"
-                data={(Object.keys(kpi.byPlatform) as Platform[]).map((p) => ({ name: PLATFORM_LABEL[p], value: kpi.byPlatform[p].responses }))}
+                data={platforms.map((p) => ({ name: PLATFORM_LABEL[p], value: kpi.byPlatform[p].responses }))}
               />
               <dl className="grid grid-cols-3 gap-2 text-xs">
-                {(Object.keys(kpi.byPlatform) as Platform[]).map((p) => (
+                {platforms.map((p) => (
                   <div key={p} className="flex flex-col gap-0.5 rounded-lg bg-secondary/60 p-2">
                     <dt className="text-muted-foreground">{PLATFORM_LABEL[p]}</dt>
                     <dd>
@@ -129,6 +169,7 @@ export default function KpiPage() {
               </dl>
             </section>
 
+            {!isLive && (
             <section aria-labelledby="by-category" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-category" className="text-sm font-semibold">
                 分類別の正答率
@@ -140,6 +181,8 @@ export default function KpiPage() {
                 data={[...kpi.byCategory.entries()].map(([id, a]) => ({ name: categoryName(id), value: rate(a) }))}
               />
             </section>
+            )}
+            {!isLive && (
 
             <section aria-labelledby="by-difficulty" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-difficulty" className="text-sm font-semibold">
@@ -154,6 +197,7 @@ export default function KpiPage() {
                 })}
               />
             </section>
+            )}
 
             <section aria-labelledby="by-position" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
               <h2 id="by-position" className="text-sm font-semibold">
@@ -180,6 +224,57 @@ export default function KpiPage() {
               </p>
             </section>
           </div>
+
+          {isLive && (
+            <section aria-labelledby="by-question" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+              <h2 id="by-question" className="text-sm font-semibold">
+                問題ごとの結果
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[40rem] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="py-2 font-normal">出題日</th>
+                      <th className="py-2 font-normal">媒体</th>
+                      <th className="py-2 font-normal">問題</th>
+                      <th className="py-2 text-right font-normal">回答数</th>
+                      <th className="py-2 text-right font-normal">正答率</th>
+                      <th className="py-2 text-right font-normal">選択肢 1／2／3</th>
+                      <th className="py-2 text-right font-normal">集計</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(({ q, r, date }) => (
+                      <tr key={r.postJobId} className="border-b last:border-0">
+                        <td className="py-2 whitespace-nowrap tabular-nums">{date ? formatDate(date) : "—"}</td>
+                        <td className="py-2">{PLATFORM_LABEL[r.platform]}</td>
+                        <td className="max-w-80 py-2">
+                          <Link href={questionHref(q.id)} className="line-clamp-1 hover:underline">
+                            <span className="mr-1.5 font-mono text-xs text-muted-foreground">{q.id}</span>
+                            {q.text}
+                          </Link>
+                        </td>
+                        <td className="py-2 text-right font-mono tabular-nums">{formatCount(r.responses)}</td>
+                        <td className="py-2 text-right font-mono tabular-nums">{formatPercent(r.correct, r.responses)}</td>
+                        <td className="py-2 text-right font-mono text-xs whitespace-nowrap tabular-nums">
+                          {(["A", "B", "C"] as ChoiceLabel[]).map((l) => (
+                            <span key={l} className={l === q.answer ? "font-semibold text-success" : undefined}>
+                              {r.perChoice[l] ?? "—"}
+                              {l !== "C" && "／"}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="py-2 text-right">
+                          <StatusBadge tone={r.finalized ? "success" : "info"} label={r.finalized ? "確定" : "暫定"} hideIcon />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-muted-foreground">正解の選択肢の票を緑で示します。X の表示回数・クリック数は取得していません。</p>
+            </section>
+          )}
         </>
       )}
 

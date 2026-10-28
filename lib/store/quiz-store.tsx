@@ -47,7 +47,7 @@ import {
   MOCK_WEEKLY_TEMPLATE,
 } from "@/lib/mocks/data"
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
-import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
+import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
 import type { GasAiStatus, GasAutomationStatus, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
@@ -1620,6 +1620,12 @@ export function useQuiz() {
 }
 
 /** 便利セレクタ */
+/** 画面の「今日」。デモは固定の日付、実APIモードは日本時間の今日（GAS の自動投稿の状態があればその日付） */
+export function useToday() {
+  const { state } = useQuiz()
+  return state.settings.dataMode === "demo" ? DEMO_TODAY : (state.liveStatus.automation?.today ?? jstToday())
+}
+
 export function useCategoryName() {
   const { data } = useQuiz()
   return useMemo(() => {
