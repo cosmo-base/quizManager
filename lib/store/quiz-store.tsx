@@ -46,10 +46,12 @@ import {
   MOCK_USERS,
   MOCK_WEEKLY_TEMPLATE,
 } from "@/lib/mocks/data"
-import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL } from "@/lib/constants"
+import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAiStatus, GasAutomationStatus, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
+import { GasError } from "@/lib/services/gas-client"
+import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
 import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
@@ -79,6 +81,10 @@ export interface LiveStatus {
   discordConfigured: boolean
   /** Gemini の設定と今月の使用量（null は未取得・古い GAS） */
   ai: GasAiStatus | null
+  /** ログインした人と GAS が決めた権限（null は未取得） */
+  me: GasMe | null
+  /** ログインはできたが使えない理由（許可されていないアカウントなど）。ログイン画面に出す */
+  authError: string | null
   loading: boolean
   loadedAt: string | null
   /** 毎朝の自動投稿の状態（null は未取得） */
@@ -95,6 +101,9 @@ interface AppState {
 }
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
+
+/** デモモードの表示上の名前・権限（権限は画面で切り替えて確認できる） */
+const DEMO_IDENTITY: { role: Role; userName: string } = { role: "admin", userName: "山田 太一" }
 
 function demoData(): AppData {
   return clone({
@@ -150,14 +159,18 @@ export interface GenerationRequest {
 }
 
 function useQuizStoreValue() {
-  const [state, setState] = useState<AppState>(() => ({
-    settings: clone(DEFAULT_SETTINGS),
-    role: "admin",
-    userName: "山田 太一",
-    demo: demoData(),
-    live: liveData(),
-    liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, loading: false, loadedAt: null, automation: null },
-  }))
+  // GAS とログインの設定があるビルド（本番）は実APIモードで開き、ログイン画面を出す
+  const [state, setState] = useState<AppState>(() => {
+    const live = LIVE_AVAILABLE
+    return {
+      settings: { ...clone(DEFAULT_SETTINGS), dataMode: live ? "live" : "demo" },
+      role: live ? "viewer" : DEMO_IDENTITY.role,
+      userName: live ? "" : DEMO_IDENTITY.userName,
+      demo: demoData(),
+      live: liveData(),
+      liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, me: null, authError: null, loading: false, loadedAt: null, automation: null },
+    }
+  })
   const stateRef = useRef(state)
   stateRef.current = state
   const auth = useGoogleAuth()
@@ -185,7 +198,7 @@ function useQuizStoreValue() {
       return false
     }
     if (s.settings.dataMode === "live" && !opts?.live) {
-      toast.error(`${operation}：実APIモードでは未対応です`, { description: "正本（GAS・Sheets）にまだつないでいない操作です。デモモードで試せます" })
+      toast.error(`${operation}：実APIモードでは未対応です`, { description: LIVE_AVAILABLE ? "正本（GAS・Sheets）にまだつないでいない操作です" : "正本（GAS・Sheets）にまだつないでいない操作です。デモモードで試せます" })
       return false
     }
     return true
@@ -206,6 +219,31 @@ function useQuizStoreValue() {
   const refreshLive = useCallback(async () => {
     if (stateRef.current.settings.dataMode !== "live") return
     setState((prev) => ({ ...prev, liveStatus: { ...prev.liveStatus, loading: true } }))
+    // 先に自分の権限を確かめる。許可されていないアカウントならログイン画面で案内する
+    let me: GasMe
+    try {
+      me = await getBackend("live").getMe()
+    } catch (e) {
+      // 許可されていない・GAS が古い・通信の失敗など。どれもログイン画面に理由を出す
+      const notAllowed = e instanceof GasError && e.reason === "not_allowed"
+      const msg = e instanceof Error ? e.message : String(e)
+      setState((prev) =>
+        produce(prev, (draft) => {
+          draft.liveStatus.loading = false
+          draft.liveStatus.me = null
+          draft.liveStatus.authError = notAllowed ? msg : `ユーザー情報を取得できませんでした：${msg}`
+        }),
+      )
+      return
+    }
+    setState((prev) =>
+      produce(prev, (draft) => {
+        draft.liveStatus.me = me
+        draft.liveStatus.authError = null
+        draft.role = me.role
+        draft.userName = me.name || me.email
+      }),
+    )
     const res = await callBackend("正本の読み込み", async (b) => {
       const loaded = await Promise.all([b.getStatus(), b.listQuestions(), b.listPostJobs(), b.getAutomationStatus()])
       // GAS の版が古いなど、想定外の形なら画面のデータは書き換えない
@@ -238,9 +276,19 @@ function useQuizStoreValue() {
     )
   }, [callBackend])
 
-  // ログインしたとき・実APIモードに切り替えたときに読み込む
+  // ログインしたとき・実APIモードに切り替えたときに読み込む。ログアウト・失効したら権限を閲覧者に戻す
   useEffect(() => {
-    if (state.settings.dataMode === "live" && auth.email) void refreshLive()
+    if (state.settings.dataMode !== "live") return
+    if (auth.email) void refreshLive()
+    else
+      setState((prev) =>
+        produce(prev, (draft) => {
+          draft.liveStatus.me = null
+          draft.liveStatus.authError = null
+          draft.role = "viewer"
+          draft.userName = ""
+        }),
+      )
   }, [state.settings.dataMode, auth.email, refreshLive])
 
   const dryRunNote = (platform: Platform, dryRun?: boolean | null) =>
@@ -280,6 +328,28 @@ function useQuizStoreValue() {
     if (!res) return
     await refreshLive()
     toast.success("ファクトチェックを実行しました", { description: `判定：${res.status === "passed" ? "検証OK" : res.status === "warning" ? "要確認" : "検証NG"}（${res.model ?? "Gemini"}）` })
+  }
+
+  // ---------------- 実APIモードのユーザーと権限 ----------------
+  const requestLiveRole = async (role: Role, note: string) => {
+    const res = await callBackend("権限の申請", (b) => b.requestRole(role, note))
+    if (!res) return false
+    setState((prev) => produce(prev, (draft) => void (draft.liveStatus.me && (draft.liveStatus.me.pendingRequest = res.pendingRequest))))
+    toast.success(`${ROLE_LABEL[role]}を申請しました`, { description: "管理者が承認すると反映されます（再読み込みで確認できます）" })
+    return true
+  }
+  const loadLiveUsers = () => callBackend("ユーザー一覧の取得", (b) => b.listUsers())
+  const setLiveUserRole = async (email: string, role: Role) => {
+    if (!guard("権限の変更", "users", { live: true })) return false
+    const res = await callBackend("権限の変更", (b) => b.setUserRole(email, role))
+    if (res) toast.success(`${email} を${ROLE_LABEL[role]}にしました`)
+    return !!res
+  }
+  const rejectLiveRoleRequest = async (email: string) => {
+    if (!guard("申請の却下", "users", { live: true })) return false
+    const res = await callBackend("申請の却下", (b) => b.rejectRoleRequest(email))
+    if (res) toast.success(`${email} の申請を却下しました`)
+    return !!res
   }
 
   /** 毎朝の自動投稿（GAS の AUTOMATION_ENABLED）を止める・再開する */
@@ -1354,12 +1424,22 @@ function useQuizStoreValue() {
     if (message) toast.success(message)
   }
 
+  // 表示の切り替えなので誰でもできる（実APIモードの操作は GAS が権限を確かめる）。デモではデモ用の名前・権限に戻す
   const setDataMode = (mode: DataMode) => {
-    if (!can(stateRef.current.role, "settings")) {
-      toast.error("権限がありません")
-      return
-    }
-    setState((prev) => produce(prev, (draft) => void (draft.settings.dataMode = mode)))
+    if (mode === "demo" && LIVE_AVAILABLE) return void toast.error("本番の管理画面ではデモモードを使いません")
+    setState((prev) =>
+      produce(prev, (draft) => {
+        draft.settings.dataMode = mode
+        if (mode === "demo") {
+          draft.role = DEMO_IDENTITY.role
+          draft.userName = DEMO_IDENTITY.userName
+        } else {
+          const me = draft.liveStatus.me
+          draft.role = me?.role ?? "viewer"
+          draft.userName = me ? me.name || me.email : ""
+        }
+      }),
+    )
     toast.info(mode === "demo" ? "デモモードに切り替えました" : "実APIモードに切り替えました", { description: mode === "demo" ? "サンプルデータを表示しています" : "Google でログインすると、正本（Google Sheets）のデータを読み込みます" })
   }
 
@@ -1411,6 +1491,7 @@ function useQuizStoreValue() {
   }
 
   const setRole = (role: Role) => {
+    if (!isDemo()) return void toast.error("実APIモードの権限は GAS が決めます", { description: "設定 → ユーザーから権限を申請できます" })
     setState((prev) => produce(prev, (draft) => void (draft.role = role)))
     toast.info(`表示権限を切り替えました（デモ）`)
   }
@@ -1514,6 +1595,10 @@ function useQuizStoreValue() {
     saveLiveQuestion,
     setLiveAutomation,
     liveGenerate,
+    requestLiveRole,
+    loadLiveUsers,
+    setLiveUserRole,
+    rejectLiveRoleRequest,
   }
 
   return { state, data, backendMode: backend.mode, actions, can: (p: Permission) => can(state.role, p) }

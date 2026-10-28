@@ -1,3 +1,4 @@
+import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { Database, FlaskConical, Inbox, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ROLE_LABEL } from "@/lib/constants"
@@ -21,7 +22,7 @@ export function LiveEmptyState({ what, description, action }: { what: string; de
     <EmptyState
       icon={Database}
       title={`${what}を取得できません`}
-      description={description ?? "この画面はまだ正本（Google Sheets）に接続していません。デモを試す場合は設定からデモモードに切り替えてください。"}
+      description={description ?? (LIVE_AVAILABLE ? "この画面はまだ正本（Google Sheets）に接続していません。" : "この画面はまだ正本（Google Sheets）に接続していません。デモを試す場合は設定からデモモードに切り替えてください。")}
       action={action}
     />
   )

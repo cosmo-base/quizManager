@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { NAV_ITEMS } from "./nav-items"
 
-export function BrandMark() {
+/** onLight：明るい背景（ログイン画面など）で使うとき。既定はサイドバーの暗い背景用の色 */
+export function BrandMark({ onLight = false }: { onLight?: boolean }) {
   const { state } = useQuiz()
   const { brand } = state.settings
   return (
@@ -20,8 +21,8 @@ export function BrandMark() {
         </span>
       )}
       <div className="flex flex-col leading-tight">
-        <span className="text-sm font-semibold text-sidebar-accent-foreground">{brand.name}</span>
-        <span className="text-[11px] tracking-wide text-sidebar-foreground/70">Quiz Manager</span>
+        <span className={cn("text-sm font-semibold", onLight ? "text-foreground" : "text-sidebar-accent-foreground")}>{brand.name}</span>
+        <span className={cn("text-[11px] tracking-wide", onLight ? "text-muted-foreground" : "text-sidebar-foreground/70")}>Quiz Manager</span>
       </div>
     </div>
   )

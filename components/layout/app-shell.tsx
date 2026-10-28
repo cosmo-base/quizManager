@@ -7,9 +7,17 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { BrandMark, SidebarNav } from "./sidebar-nav"
 import { AppHeader } from "./app-header"
 import { ModeBanner } from "./mode-banner"
+import { LoginGate } from "./login-gate"
+import { useGoogleAuth } from "@/lib/auth/google-auth"
+import { useQuiz } from "@/lib/store/quiz-store"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { state } = useQuiz()
+  const auth = useGoogleAuth()
+
+  // 実APIモードは、ログインして GAS が権限を返すまで画面全体をログイン画面にする
+  if (state.settings.dataMode === "live" && (!auth.email || !state.liveStatus.me)) return <LoginGate />
 
   return (
     <div className="flex min-h-dvh">

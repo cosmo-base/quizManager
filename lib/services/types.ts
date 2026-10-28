@@ -1,5 +1,6 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
-import type { GasAutomationStatus, GasPostJob, GasQuestion, GasStatus, GenerateQuestionsInput, GenerateQuestionsResult, SaveQuestionInput } from "./gas-contract"
+import type { Role } from "@/lib/types"
+import type { GasAutomationStatus, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
   scope: AIInsight["scope"]
@@ -35,6 +36,13 @@ export interface QuizBackend {
   setAutomationEnabled(enabled: boolean): Promise<{ enabled: boolean }>
   /** Gemini で問題を作り、下書きで正本に保存する */
   generateQuestions(input: GenerateQuestionsInput): Promise<GenerateQuestionsResult>
+  /** ログインした人と、その権限 */
+  getMe(): Promise<GasMe>
+  requestRole(role: Role, note: string): Promise<{ pendingRequest: GasRoleRequest }>
+  /** 以下は管理者のみ */
+  listUsers(): Promise<GasUser[]>
+  setUserRole(email: string, role: Role): Promise<{ email: string; role: Role }>
+  rejectRoleRequest(email: string): Promise<{ email: string }>
 }
 
 export class NotConnectedError extends Error {
