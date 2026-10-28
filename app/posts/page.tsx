@@ -209,7 +209,7 @@ export default function PostsPage() {
           {jobs.length === 0 ? (
             <EmptyState title="該当する投稿はありません" description="絞り込み条件を変更してください" />
           ) : (
-            <PostTable jobs={jobs} questions={questionMap} disabled={!canPost} onAction={onAction} />
+            <PostTable jobs={jobs} questions={questionMap} disabled={!canPost} onAction={onAction} live={isLive} />
           )}
         </section>
 
@@ -221,12 +221,15 @@ export default function PostsPage() {
             onSchedule={actions.schedulePost}
             liveIssues={isLive ? (q) => liveScheduleIssues(q, data.postJobs, discordConfigured) : undefined}
           />
-          <InstagramStock
-            questions={igStock}
-            minStock={state.settings.posting.instagramMinStock}
-            disabled={!canPost}
-            onRecord={(id) => setDialog({ kind: "recordIg", questionId: id })}
-          />
+          {/* Instagram は休止中のため、本番では出さない */}
+          {!isLive && (
+            <InstagramStock
+              questions={igStock}
+              minStock={state.settings.posting.instagramMinStock}
+              disabled={!canPost}
+              onRecord={(id) => setDialog({ kind: "recordIg", questionId: id })}
+            />
+          )}
         </div>
       </div>
 
@@ -304,7 +307,13 @@ export default function PostsPage() {
         open={dialog?.kind === "recordManual" || dialog?.kind === "recordIg"}
         onOpenChange={(o) => !o && setDialog(null)}
         title={dialog?.kind === "recordIg" ? "Instagram投稿を記録" : "手動投稿を記録"}
-        description="手動で投稿した後、投稿URLを記録すると出題履歴と回答取得の対象になります。"
+        description={
+          isLive
+            ? `API で投稿できないときに、${activeJob?.platform === "discord" ? "Discord の出題チャンネルに手で投稿したメッセージのリンク" : "X に手で投稿したポストの URL"}を記録します。記録すると投稿済みになり、正解発表・結果の取得はこの投稿に対して行います。投稿は問題画面のプレビューと同じ内容にしてください。`
+            : "手動で投稿した後、投稿URLを記録すると出題履歴と回答取得の対象になります。"
+        }
+        required={isLive}
+        placeholder={isLive && activeJob?.platform === "discord" ? "https://discord.com/channels/…/…/…" : isLive ? "https://x.com/…/status/…" : "https://"}
         onSubmit={(url) => {
           if (dialog?.kind === "recordIg") actions.recordInstagramPost(dialog.questionId, url)
           else if (activeJob) actions.markManualPosted(activeJob.id, url)

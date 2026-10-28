@@ -25,14 +25,16 @@ const DIFFICULTY_OPTIONS: { value: NonNullable<GenerateQuestionsInput["difficult
   { value: "advanced", label: "上級" },
 ]
 
-export function LiveGenerate() {
-  const { state, actions, can } = useQuiz()
+/** similarId：問題の画面の「類似問題を生成」から来たとき、その問題と同じテーマで別の内容を作るよう指示に入れる */
+export function LiveGenerate({ initialPlatform, similarId }: { initialPlatform?: string; similarId?: string | null }) {
+  const { data, state, actions, can } = useQuiz()
   const ai = state.liveStatus.ai
-  const [platform, setPlatform] = useState<GenerateQuestionsInput["platform"]>("x")
+  const similar = similarId ? data.questions.find((q) => q.id === similarId) : undefined
+  const [platform, setPlatform] = useState<GenerateQuestionsInput["platform"]>(initialPlatform === "discord" || similar?.platform === "discord" ? "discord" : "x")
   const [count, setCount] = useState("3")
   const [difficulty, setDifficulty] = useState<NonNullable<GenerateQuestionsInput["difficulty"]>>("auto")
   const [theme, setTheme] = useState("")
-  const [instructions, setInstructions] = useState("")
+  const [instructions, setInstructions] = useState(similar ? `次の問題と同じテーマで、別の内容の問題にする：${similar.text.slice(0, 100)}` : "")
   const [plannedDate, setPlannedDate] = useState("")
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<GenerateQuestionsResult | null>(null)

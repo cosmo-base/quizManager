@@ -1,5 +1,7 @@
 "use client"
 
+import { PostTextPreview } from "@/components/shared/post-text-preview"
+
 import { useState } from "react"
 import Link from "next/link"
 import { Check, ExternalLink, Pencil, RefreshCw, Undo2, WandSparkles, X } from "lucide-react"
@@ -81,7 +83,7 @@ export function ReviewPanel({ q }: { q: Question }) {
           {categoryName(q.categoryId)} ・ {DIFFICULTY_LABEL[q.difficulty]} ・ v{q.versions.length}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={isLive || !can(state.role, "generate")}>
+          <Button size="sm" variant="ghost" onClick={() => actions.regenerateQuestion(q.id)} disabled={(isLive && !aiReady) || !can(state.role, "generate")}>
             <WandSparkles />
             別問題を生成
           </Button>
@@ -136,6 +138,11 @@ export function ReviewPanel({ q }: { q: Question }) {
           <Block title="解説">
             <p className="text-sm leading-relaxed text-pretty">{q.explanation}</p>
           </Block>
+          {isLive ? (
+            <Block title="投稿内容プレビュー">
+            <PostTextPreview q={q} />
+          </Block>
+          ) : (
           <Block title="投稿画像プレビュー">
             <div className="flex max-w-sm flex-col gap-2">
               <div className="flex aspect-square flex-col justify-between rounded-md border bg-primary p-4 text-primary-foreground">
@@ -157,6 +164,7 @@ export function ReviewPanel({ q }: { q: Question }) {
               </div>
             </div>
           </Block>
+          )}
         </div>
 
         <div className="flex flex-col gap-5 border-t p-4 xl:overflow-y-auto xl:border-t-0">

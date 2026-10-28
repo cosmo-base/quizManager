@@ -1,5 +1,8 @@
 "use client"
 
+import { useQuiz } from "@/lib/store/quiz-store"
+import { PostTextPreview } from "@/components/shared/post-text-preview"
+
 import { questionHref } from "@/lib/routes"
 import Link from "next/link"
 import { ExternalLink } from "lucide-react"
@@ -104,6 +107,8 @@ export function QuestionDetailTabs({
 }
 
 function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: string) => string }) {
+  // 実APIモードの投稿は画像なし。画像の代わりに実際に投稿される本文を出す
+  const live = useQuiz().state.settings.dataMode === "live"
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <Section title="問題">
@@ -154,6 +159,11 @@ function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: strin
             <dd className="tabular-nums">{formatDateTime(q.updatedAt)}</dd>
           </dl>
         </Section>
+        {live ? (
+          <Section title="投稿内容プレビュー">
+            <PostTextPreview q={q} />
+          </Section>
+        ) : (
         <Section title="投稿画像">
           <div className="flex flex-col gap-3">
             <div className="flex aspect-square flex-col justify-between rounded-md border bg-primary p-4 text-primary-foreground">
@@ -176,6 +186,7 @@ function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: strin
             </div>
           </div>
         </Section>
+        )}
       </div>
     </div>
   )

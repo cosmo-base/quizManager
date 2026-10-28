@@ -18,6 +18,7 @@ export type GasAction =
   | "verifyQuestion"
   | "generateQuestions"
   | "listInsights"
+  | "recordManualPost"
   | "getMe"
   | "requestRole"
   | "listUsers"
@@ -77,6 +78,21 @@ export interface GasStatus {
   discordConfigured?: boolean
   /** Gemini の設定と今月の使用量（古い GAS では無い） */
   ai?: GasAiStatus
+  /** 設定画面に出す値（秘密情報は出さず、設定済みかどうかだけ。古い GAS では無い） */
+  config?: GasConfigSummary
+}
+
+export interface GasConfigSummary {
+  automationEnabled: boolean
+  allowLivePost: boolean
+  /** Discord への送信を Supabase の中継経由にしているか */
+  discordRelay: boolean
+  discordGuild: boolean
+  /** 運営用チャンネル（DISCORD_OPS_WEBHOOK_URL）・通知メール（NOTIFY_EMAIL） */
+  opsWebhook: boolean
+  notifyEmail: boolean
+  supabaseHeartbeat: boolean
+  spareMinStock: number
 }
 
 /** AI（Gemini）の状態。monthCostJpy・budgetJpy は有料枠に換算した概算 */

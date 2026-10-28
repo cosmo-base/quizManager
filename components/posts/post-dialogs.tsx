@@ -140,15 +140,20 @@ export function RecordUrlDialog({
   title,
   description,
   onSubmit,
+  required = false,
+  placeholder = "https://",
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   title: string
   description: string
   onSubmit: (url: string) => void
+  /** URL を必須にする（実APIモードの手動投稿の記録は URL から投稿 ID を取り出す） */
+  required?: boolean
+  placeholder?: string
 }) {
   const [url, setUrl] = useState("")
-  const valid = url === "" || /^https?:\/\/\S+$/.test(url)
+  const valid = url === "" ? !required : /^https?:\/\/\S+$/.test(url)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -161,12 +166,12 @@ export function RecordUrlDialog({
           <Input
             id="post-url"
             type="url"
-            placeholder="https://"
+            placeholder={placeholder}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             aria-invalid={!valid}
           />
-          {!valid && <p className="text-xs text-destructive">URLの形式が正しくありません</p>}
+          {!valid && url !== "" && <p className="text-xs text-destructive">URLの形式が正しくありません</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

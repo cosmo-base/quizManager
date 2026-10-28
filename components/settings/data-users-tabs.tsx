@@ -63,6 +63,8 @@ export function DataSettingsTab({ disabled }: { disabled: boolean }) {
         </SettingsCard>
       )}
 
+      {/* 実APIモードは GAS が直接 Sheets に書くので、同期の設定・履歴は出さない */}
+      {state.settings.dataMode !== "live" && (
       <SettingsCard title="Google Sheets同期" description="確定した回答集計を既存KPIダッシュボード用のシートへ書き込みます。">
         <Field id="sheet-name" label="スプレッドシート名">
           <Input id="sheet-name" value={sh.spreadsheetName} disabled={disabled} onChange={(e) => set((d) => void (d.sheets.spreadsheetName = e.target.value))} />
@@ -86,7 +88,9 @@ export function DataSettingsTab({ disabled }: { disabled: boolean }) {
           </Button>
         </div>
       </SettingsCard>
+      )}
 
+      {state.settings.dataMode !== "live" && (
       <div className="xl:col-span-2">
         <SettingsCard title="同期履歴">
           {data.syncLogs.length === 0 ? (
@@ -108,6 +112,7 @@ export function DataSettingsTab({ disabled }: { disabled: boolean }) {
           )}
         </SettingsCard>
       </div>
+      )}
 
       <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
         <DialogContent>

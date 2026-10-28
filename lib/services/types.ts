@@ -27,6 +27,8 @@ export interface QuizBackend {
   syncToSheets(jobs: PostJob[]): Promise<{ rows: number }>
   /** 実APIモードは記録済みの分析（id・作成日時などを含む）を返す */
   runInsight(req: InsightRequest): Promise<Pick<AIInsight, "facts" | "hypotheses" | "improvements" | "verification" | "cautions"> & Partial<AIInsight>>
+  /** 手動で投稿したものを URL で記録する（実APIモードのみ） */
+  recordManualPost(job: PostJob, url: string): Promise<{ externalId: string; url: string }>
   /** 過去の分析（新しい順）。実APIモードのみ */
   listInsights(): Promise<AIInsight[]>
   testConnection(key: Integration["key"]): Promise<Integration["status"]>
