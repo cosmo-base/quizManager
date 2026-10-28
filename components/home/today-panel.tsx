@@ -4,7 +4,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
+import { useCategoryName, useQuiz, useToday } from "@/lib/store/quiz-store"
 import { addDays, DEMO_TODAY, formatDate, formatPercent, formatTime } from "@/lib/format"
 import { PLAN_STATUS, POST_STATUS, RESPONSE_STATUS } from "@/lib/constants"
 import { PlatformBadge } from "@/components/shared/platform-badge"
@@ -67,7 +67,7 @@ export function TodayPanel() {
 
 export function YesterdayPanel() {
   const { data } = useQuiz()
-  const yesterday = addDays(DEMO_TODAY, -1)
+  const yesterday = addDays(useToday(), -1)
   const jobs = data.postJobs.filter((j) => j.date === yesterday && j.platform !== "instagram")
 
   return (

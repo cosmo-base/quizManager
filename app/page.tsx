@@ -4,12 +4,12 @@ import Link from "next/link"
 import { ClipboardCheck, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
-import { LiveEmptyState } from "@/components/shared/states"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { KpiStrip } from "@/components/home/kpi-strip"
 import { TodayPanel, YesterdayPanel } from "@/components/home/today-panel"
 import { StockPanel, WeekPanel } from "@/components/home/week-panel"
 import { ActivityPanel, AlertsPanel, IntegrationsPanel, JobsPanel } from "@/components/home/ops-panels"
+import { LiveActivityPanel, LiveAlertsPanel, LiveTodayPanel } from "@/components/home/live-panels"
 
 export default function HomePage() {
   const { state } = useQuiz()
@@ -35,7 +35,20 @@ export default function HomePage() {
       />
       <KpiStrip />
       {live ? (
-        <LiveEmptyState what="運営データ" />
+        <>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="flex flex-col gap-6 lg:col-span-2">
+              <LiveTodayPanel />
+              <WeekPanel />
+            </div>
+            <div className="flex flex-col gap-6">
+              <LiveAlertsPanel />
+              <YesterdayPanel />
+              <StockPanel />
+            </div>
+          </div>
+          <LiveActivityPanel />
+        </>
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-3">

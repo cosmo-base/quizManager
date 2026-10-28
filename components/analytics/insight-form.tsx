@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 import type { AIInsight, Platform } from "@/lib/types"
-import { useQuiz } from "@/lib/store/quiz-store"
+import { useQuiz, useToday } from "@/lib/store/quiz-store"
 import { AI_MODELS, PLATFORM_LABEL } from "@/lib/constants"
-import { addDays, DEMO_TODAY } from "@/lib/format"
+import { addDays } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SimpleSelect, type SelectOption } from "@/components/shared/simple-select"
@@ -33,7 +33,12 @@ const PLATFORMS: Platform[] = ["x", "discord", "instagram"]
 
 export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) {
   const { data, state, actions, can } = useQuiz()
+  const today = useToday()
+  const live = state.settings.dataMode === "live"
   const posted = useMemo(() => data.questions.filter((q) => q.responses.length > 0), [data.questions])
+  // 実APIモード：分類・検定の情報は正本に無い。媒体は X・Discord（Instagram は休止中）
+  const scopes = (Object.keys(SCOPE_LABEL) as AIInsight["scope"][]).filter((k) => !live || (k !== "category" && k !== "certification"))
+  const platformList: Platform[] = live ? (state.liveStatus.discordConfigured ? ["x", "discord"] : ["x"]) : PLATFORMS
 
   const optionsFor = (scope: AIInsight["scope"]): SelectOption<string>[] => {
     switch (scope) {
@@ -42,7 +47,7 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
       case "category":
         return data.categories.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))
       case "platform":
-        return PLATFORMS.map((p) => ({ value: p, label: PLATFORM_LABEL[p] }))
+        return platformList.map((p) => ({ value: p, label: PLATFORM_LABEL[p] }))
       case "period":
         return [
           { value: "7", label: "直近7日" },
@@ -71,9 +76,9 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
       case "platform":
         return { ids: posted.filter((q) => q.platform === target).map((q) => q.id), label: `${opt?.label ?? ""}・出題済み` }
       case "period": {
-        const from = addDays(DEMO_TODAY, -Number(target))
+        const from = addDays(today, -Number(target))
         return {
-          ids: posted.filter((q) => q.plannedDate && q.plannedDate >= from && q.plannedDate <= DEMO_TODAY).map((q) => q.id),
+          ids: posted.filter((q) => q.plannedDate && q.plannedDate >= from && q.plannedDate <= today).map((q) => q.id),
           label: opt?.label ?? "",
         }
       }
@@ -82,7 +87,7 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
       default:
         return { ids: posted.map((q) => q.id), label: "出題済みの全問題" }
     }
-  }, [scope, target, targetOptions, posted, data.questions])
+  }, [scope, target, targetOptions, posted, data.questions, today])
 
   const allowed = can("analyze")
   const cost = AI_MODELS.find((m) => m.id === model)?.costPerQuestion ?? 2
@@ -114,7 +119,7 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
             setScope(v)
             setTarget(optionsFor(v)[0]?.value ?? "")
           }}
-          options={(Object.keys(SCOPE_LABEL) as AIInsight["scope"][]).map((k) => ({ value: k, label: SCOPE_LABEL[k] }))}
+          options={scopes.map((k) => ({ value: k, label: SCOPE_LABEL[k] }))}
         />
       </div>
 
@@ -125,10 +130,16 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="insight-model">モデル</Label>
-        <SimpleSelect id="insight-model" value={model} onChange={setModel} options={AI_MODELS.map((m) => ({ value: m.id, label: m.label }))} />
-      </div>
+      {live ? (
+        <p className="text-xs text-muted-foreground">
+          モデル：<span className="font-mono">{state.liveStatus.ai?.model ?? "—"}</span>（GAS の設定）・今月の AI 使用量 約 {Math.round(state.liveStatus.ai?.monthCostJpy ?? 0)} 円 / 上限 {state.liveStatus.ai?.budgetJpy ?? "—"} 円
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="insight-model">モデル</Label>
+          <SimpleSelect id="insight-model" value={model} onChange={setModel} options={AI_MODELS.map((m) => ({ value: m.id, label: m.label }))} />
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 rounded-lg bg-secondary/60 p-3">
         <p className="text-xs font-medium text-muted-foreground">分析内容</p>
@@ -145,12 +156,15 @@ export function InsightForm({ onStarted }: { onStarted: (id: string) => void }) 
         <span>
           対象 <span className="font-mono text-foreground">{resolved.ids.length}</span> 問
         </span>
-        <span>
-          概算 <span className="font-mono text-foreground">¥{Math.round(cost * 2 * 10) / 10}</span>
-        </span>
+        {!live && (
+          <span>
+            概算 <span className="font-mono text-foreground">¥{Math.round(cost * 2 * 10) / 10}</span>
+          </span>
+        )}
       </div>
 
-      <Button onClick={run} disabled={!allowed || running || resolved.ids.length === 0}>
+      {live && resolved.ids.length > 60 && <p className="text-xs text-warning">一度に分析できるのは 60 問までです。期間を短くしてください。</p>}
+      <Button onClick={run} disabled={!allowed || running || resolved.ids.length === 0 || (live && (resolved.ids.length > 60 || !state.liveStatus.ai?.configured))}>
         {running ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
         {running ? "分析中…" : "AIで分析する"}
       </Button>

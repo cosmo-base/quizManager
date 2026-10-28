@@ -30,15 +30,22 @@ export function KpiStrip() {
     const unaggregated = data.postJobs.filter((j) => j.status === "posted" && j.responseStatus !== "finalized").length
     const failed = data.postJobs.filter((j) => j.status === "failed" || j.status === "unknown").length
     const minStock = state.settings.posting.instagramMinStock
+    // 実APIモード：Instagram は休止中なので、代わりに予備問題（承認済み・出題日なし）の数を出す
+    const live = state.settings.dataMode === "live"
+    const spare = data.questions.filter((q) => q.platform !== "instagram" && q.status === "approved" && !q.plannedDate).length
+    const spareMin = state.liveStatus.automation?.spareMin ?? 3
+    const stockTile: Kpi = live
+      ? { label: "予備問題（X・Discord）", value: `${spare}問`, sub: `媒体ごとに最低${spareMin}問`, href: "/questions", tone: spare < spareMin ? "warning" : undefined }
+      : { label: "Instagramストック", value: `${igStock}問`, sub: igStock < minStock ? `最低${minStock}問を下回っています` : `最低${minStock}問・投稿休止中`, href: "/questions?platform=instagram", platform: "instagram", tone: igStock < minStock ? "warning" : undefined }
     return [
       { label: "次回X出題", value: nx ? formatDateTime(nx.scheduledAt) : "予約なし", sub: nx ? nx.questionId : "出題計画を確認", href: "/posts", platform: "x" },
       { label: "次回Discord出題", value: nd ? formatDateTime(nd.scheduledAt) : "予約なし", sub: nd ? nd.questionId : "出題計画を確認", href: "/posts", platform: "discord" },
-      { label: "Instagramストック", value: `${igStock}問`, sub: igStock < minStock ? `最低${minStock}問を下回っています` : `最低${minStock}問・投稿休止中`, href: "/questions?platform=instagram", platform: "instagram", tone: igStock < minStock ? "warning" : undefined },
+      stockTile,
       { label: "確認・承認待ち", value: `${review}件`, sub: review ? "確認が必要です" : "対応不要", href: "/reviews", tone: review ? "warning" : "ok" },
       { label: "未集計", value: `${unaggregated}件`, sub: unaggregated ? "回答結果の取得待ち" : "すべて集計済み", href: "/posts?tab=results", tone: unaggregated ? undefined : "ok" },
       { label: "投稿失敗・不明", value: `${failed}件`, sub: failed ? "詳細を確認してください" : "エラーなし", href: "/posts?status=failed", tone: failed ? "danger" : "ok" },
     ]
-  }, [data, state.settings.posting.instagramMinStock])
+  }, [data, state.settings.posting.instagramMinStock, state.settings.dataMode, state.liveStatus.automation?.spareMin])
 
   return (
     <section aria-label="主要指標" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-3 xl:grid-cols-6">

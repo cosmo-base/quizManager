@@ -5,6 +5,11 @@
 export const DEMO_NOW = "2026-10-25T09:30:00+09:00"
 export const DEMO_TODAY = "2026-10-25"
 
+/** 日本時間の今日（yyyy-MM-dd） */
+export function jstToday(now = Date.now()) {
+  return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10)
+}
+
 const TZ = "Asia/Tokyo"
 
 function toUtcDate(date: string) {

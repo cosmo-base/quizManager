@@ -2,7 +2,7 @@
 // 接続済み：問題の保存・一覧、X・Discord の出題・正解発表・結果取得・公開状況、自動投稿の状態・切り替え、接続テスト、
 // Gemini による問題の生成（下書き保存）とファクトチェック。
 // 未実装の処理は必ず NotConnectedError を投げ、UI上で成功を偽装しないこと。
-import type { Integration, PostJob, Role } from "@/lib/types"
+import type { AIInsight, Integration, PostJob, Role } from "@/lib/types"
 import { callGas } from "./gas-client"
 import type { GasAutomationStatus, GasFactCheck, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsResult, PostTarget, PublishPostResult } from "./gas-contract"
 import { NotConnectedError, type QuizBackend } from "./types"
@@ -26,7 +26,8 @@ export const liveBackend: QuizBackend = {
   },
   fetchResponses: (job) => callGas("fetchResponses", target(job), "回答結果の取得"),
   syncToSheets: notConnected("Sheets同期", "実APIモードでは GAS が直接 Sheets に記録するため不要です"),
-  runInsight: notConnected("AI定性分析", "GAS action=runInsight"),
+  runInsight: (req) => callGas<AIInsight>("runInsight", { scope: req.scope, targetLabel: req.targetLabel, questionIds: req.questionIds }, "AI定性分析"),
+  listInsights: () => callGas<AIInsight[]>("listInsights", {}, "分析履歴の取得"),
   testConnection: async (key) => (await callGas<{ status: Integration["status"] }>("testConnection", { key }, "接続テスト")).status,
   getStatus: () => callGas<GasStatus>("getStatus", {}, "状態の取得"),
   listQuestions: () => callGas<GasQuestion[]>("listQuestions", {}, "問題の読み込み"),

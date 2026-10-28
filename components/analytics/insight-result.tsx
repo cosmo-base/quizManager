@@ -1,6 +1,7 @@
 "use client"
 
-import { Check, FlaskConical, Lightbulb, ListChecks, Loader2, TriangleAlert, Wrench } from "lucide-react"
+import { Check, FlaskConical, Lightbulb, ListChecks, Loader2, TriangleAlert, Wrench, Copy } from "lucide-react"
+import { toast } from "sonner"
 import type { AIInsight } from "@/lib/types"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { formatDateTime } from "@/lib/format"
@@ -36,8 +37,18 @@ function Bullets({ items, empty = "該当なし" }: { items: string[]; empty?: s
 }
 
 export function InsightResult({ insight }: { insight: AIInsight }) {
-  const { actions, can } = useQuiz()
+  const { state, actions, can } = useQuiz()
   const canApply = can("settings") || can("approve")
+  // 実APIモード：生成ルールは正本に無いので、改善案は AI 生成の「追加の指示」に写して使う
+  const live = state.settings.dataMode === "live"
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success("改善案をコピーしました", { description: "AI問題生成の「追加の指示」に貼り付けて使えます" })
+    } catch {
+      toast.error("コピーできませんでした")
+    }
+  }
 
   return (
     <article className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5">
@@ -76,12 +87,19 @@ export function InsightResult({ insight }: { insight: AIInsight }) {
             <Bullets items={insight.hypotheses} />
           </Section>
           <Section icon={Wrench} title="3. 具体的な改善案">
-            <p className="text-xs leading-relaxed text-muted-foreground">承認した改善案だけが「設定 &gt; 問題生成ルール」に反映されます。</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {live ? "採用する改善案は、AI問題生成の「追加の指示」に写して使ってください（自動では反映されません）。" : "承認した改善案だけが「設定 > 問題生成ルール」に反映されます。"}
+            </p>
             <ul className="flex flex-col gap-2">
               {insight.improvements.map((r) => (
                 <li key={r.id} className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm leading-relaxed text-pretty">{r.text}</span>
-                  {r.approved ? (
+                  {live ? (
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => copy(r.text)}>
+                      <Copy aria-hidden />
+                      コピー
+                    </Button>
+                  ) : r.approved ? (
                     <StatusBadge tone="success" label="ルールに反映済み" className="shrink-0" />
                   ) : (
                     <Button size="sm" variant="outline" className="shrink-0" disabled={!canApply} onClick={() => actions.approveInsightRule(insight.id, r.id)}>

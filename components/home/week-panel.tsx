@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { CheckCircle2, CircleDashed, CircleX, Clock, HelpCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useQuiz } from "@/lib/store/quiz-store"
-import { addDays, dateRange, DEMO_TODAY, formatDate } from "@/lib/format"
+import { useQuiz, useToday } from "@/lib/store/quiz-store"
+import { addDays, dateRange, formatDate } from "@/lib/format"
 import { PLATFORM_LABEL, POST_STATUS, WEEKDAY_LABEL } from "@/lib/constants"
 import { weekday } from "@/lib/format"
 import { PlatformMark } from "@/components/shared/platform-badge"
@@ -21,9 +21,11 @@ function cellFor(job: PostJob | undefined) {
 }
 
 export function WeekPanel() {
-  const { data } = useQuiz()
-  const days = dateRange(addDays(DEMO_TODAY, -6), DEMO_TODAY)
-  const platforms: Platform[] = ["x", "discord"]
+  const { data, state } = useQuiz()
+  const today = useToday()
+  const days = dateRange(addDays(today, -6), today)
+  // 実APIモードで Discord の Bot が未設定なら X だけ
+  const platforms: Platform[] = state.settings.dataMode === "live" && !state.liveStatus.discordConfigured ? ["x"] : ["x", "discord"]
 
   return (
     <Card>
@@ -39,7 +41,7 @@ export function WeekPanel() {
                 媒体
               </th>
               {days.map((d) => (
-                <th key={d} scope="col" className={cn("pb-2 text-xs font-normal", d === DEMO_TODAY ? "text-foreground" : "text-muted-foreground")}>
+                <th key={d} scope="col" className={cn("pb-2 text-xs font-normal", d === today ? "text-foreground" : "text-muted-foreground")}>
                   <span className="block font-mono tabular-nums">{Number(d.slice(8))}</span>
                   <span className="block">{WEEKDAY_LABEL[weekday(d)]}</span>
                 </th>
@@ -94,7 +96,10 @@ export function WeekPanel() {
 
 export function StockPanel() {
   const { data, state } = useQuiz()
-  const platforms: Platform[] = ["x", "discord", "instagram"]
+  const live = state.settings.dataMode === "live"
+  // 実APIモードは X・Discord（Discord は Bot が設定済みのときだけ）。Instagram は休止中
+  const platforms: Platform[] = live ? (state.liveStatus.discordConfigured ? ["x", "discord"] : ["x"]) : ["x", "discord", "instagram"]
+  const spareMin = state.liveStatus.automation?.spareMin
   const rows = platforms.map((p) => {
     const approved = data.questions.filter((q) => q.platform === p && q.status === "approved")
     const unassigned = approved.filter((q) => !q.plannedDate).length
@@ -115,13 +120,14 @@ export function StockPanel() {
               <PlatformMark platform={r.p} />
               {PLATFORM_LABEL[r.p]}
               <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
-                確定 {r.approved}・未割当 {r.unassigned}・確認待ち {r.review}
+                確定 {r.approved}・{live ? "予備" : "未割当"} {r.unassigned}・確認待ち {r.review}
               </span>
             </div>
             <div className="flex h-2 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${PLATFORM_LABEL[r.p]}：確定${r.approved}問、確認待ち${r.review}問`}>
               <div className="h-full bg-success" style={{ width: `${(r.approved / max) * 100}%` }} />
               <div className="h-full bg-warning" style={{ width: `${(r.review / max) * 100}%` }} />
             </div>
+            {live && spareMin !== undefined && r.unassigned < spareMin && <p className="text-xs text-warning">予備問題が最低数（{spareMin}問）を下回っています</p>}
             {r.p === "instagram" && r.approved < state.settings.posting.instagramMinStock && (
               <p className="text-xs text-warning">最低ストック数（{state.settings.posting.instagramMinStock}問）を下回っています</p>
             )}

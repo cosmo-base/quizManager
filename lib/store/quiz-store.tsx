@@ -47,7 +47,7 @@ import {
   MOCK_WEEKLY_TEMPLATE,
 } from "@/lib/mocks/data"
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
-import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, shortHash, weekday } from "@/lib/format"
+import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
 import type { GasAiStatus, GasAutomationStatus, GasMe, GenerateQuestionsInput, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
@@ -359,6 +359,23 @@ function useQuizStoreValue() {
     if (!res) return
     toast.success(res.enabled ? "毎朝の自動投稿を再開しました" : "毎朝の自動投稿を停止しました", { description: res.enabled ? undefined : "06:00 の投稿・前日の確定は行われません。手動投稿はできます" })
     await refreshLive()
+  }
+
+  /**
+   * 出題日を変える（出題計画）。承認済みの問題に日付を入れると予約、空にすると予備に戻る。
+   * 承認済みのまま保存するので、GAS では承認の権限が要る
+   */
+  const assignLiveDate = async (id: string, date: string | null) => {
+    if (!guard(date ? "出題日の割り当て" : "予備に戻す", "approve", { live: true })) return false
+    const q = stateRef.current.live.questions.find((x) => x.id === id)
+    if (!q) return false
+    const saved = await callBackend("出題日の変更", (b) =>
+      b.saveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: date, status: "approved", note: date ? `出題計画から ${date} に割り当て` : "出題計画から予備に戻す" }),
+    )
+    if (!saved) return false
+    toast.success(date ? `${id} を ${date} に割り当てました` : `${id} を予備に戻しました`)
+    await refreshLive()
+    return true
   }
 
   /** 状態だけを変えて新しい版を保存する（承認・差し戻し・不採用） */
@@ -1379,7 +1396,22 @@ function useQuizStoreValue() {
   }
 
   // ---------------- 分析 ----------------
+  /** 実APIモード：過去の分析を正本から読む */
+  const loadLiveInsights = useCallback(async () => {
+    const list = await callBackend("分析履歴の取得", (b) => b.listInsights())
+    if (list) setState((prev) => produce(prev, (draft) => void (draft.live.insights = list)))
+  }, [callBackend])
+
   const runInsight = async (scope: AIInsight["scope"], targetLabel: string, questionIds: string[], model: string) => {
+    if (!isDemo()) {
+      // Gemini で分析し、正本の insights タブに記録する（モデルは GAS の設定）
+      if (!guard("AI定性分析", "analyze", { live: true })) return null
+      const res = await callBackend("AI定性分析", (b) => b.runInsight({ scope, targetLabel, questionIds, model }))
+      if (!res?.id) return null
+      await loadLiveInsights()
+      toast.success("分析が完了しました", { description: "結果は出題ルールへ自動反映されません" })
+      return res.id
+    }
     if (!guard("AI定性分析", "analyze")) return null
     const id = `AI-${Date.now().toString().slice(-6)}`
     update((d) => {
@@ -1576,6 +1608,7 @@ function useQuizStoreValue() {
     reschedulePost,
     recordInstagramPost,
     runInsight,
+    loadLiveInsights,
     approveInsightRule,
     updateSettings,
     setDataMode,
@@ -1595,6 +1628,7 @@ function useQuizStoreValue() {
     saveLiveQuestion,
     setLiveAutomation,
     liveGenerate,
+    assignLiveDate,
     requestLiveRole,
     loadLiveUsers,
     setLiveUserRole,
@@ -1620,6 +1654,12 @@ export function useQuiz() {
 }
 
 /** 便利セレクタ */
+/** 画面の「今日」。デモは固定の日付、実APIモードは日本時間の今日（GAS の自動投稿の状態があればその日付） */
+export function useToday() {
+  const { state } = useQuiz()
+  return state.settings.dataMode === "demo" ? DEMO_TODAY : (state.liveStatus.automation?.today ?? jstToday())
+}
+
 export function useCategoryName() {
   const { data } = useQuiz()
   return useMemo(() => {
