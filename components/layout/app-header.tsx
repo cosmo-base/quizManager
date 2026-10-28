@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import { LogOut, Moon, Sun, Pause, Play, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,17 +26,74 @@ import { titleForPath } from "./nav-items"
 import { GlobalSearch } from "./global-search"
 import { NotificationsPopover } from "./notifications-popover"
 
+/** 実APIモード：GAS の AUTOMATION_ENABLED を表示し、確認のうえ切り替える */
+function LiveAutomationPill() {
+  const { state, actions, can } = useQuiz()
+  const [confirming, setConfirming] = useState(false)
+  const automation = state.liveStatus.automation
+  const enabled = automation?.enabled ?? null
+  const label = enabled === null ? "自動投稿：未取得" : enabled ? "自動投稿：稼働中" : "自動投稿：停止中"
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setConfirming(true)}
+        disabled={enabled === null || !can("automation")}
+        className="hidden gap-2 md:inline-flex"
+        aria-label={`${label}（クリックで${enabled ? "停止" : "再開"}）`}
+      >
+        <span className={cn("size-2 rounded-full", enabled === null ? "bg-muted-foreground" : enabled ? "bg-success" : "bg-warning")} aria-hidden />
+        {label}
+        {automation?.dryRun && <span className="rounded bg-info/15 px-1 text-[11px] text-info">ドライラン</span>}
+        {enabled ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+      </Button>
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{enabled ? "毎朝の自動投稿を停止しますか？" : "毎朝の自動投稿を再開しますか？"}</DialogTitle>
+            <DialogDescription>
+              {enabled
+                ? "06:00 の投稿・正解発表、前日 18:00 の確認依頼と 21:00 の確定が止まります。管理画面からの手動投稿はできます。"
+                : `06:00 に前日の正解発表と当日の問題の投稿を自動で行います。${automation?.dryRun ? "現在はドライランのため X には投稿しません。" : "本番投稿モードのため X に実際に投稿されます。"}`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirming(false)}>
+              戻る
+            </Button>
+            <Button
+              variant={enabled ? "destructive" : "default"}
+              onClick={() => {
+                setConfirming(false)
+                void actions.setLiveAutomation(!enabled)
+              }}
+            >
+              {enabled ? "停止する" : "再開する"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 function AutomationPill() {
   const { state, actions, can } = useQuiz()
   const { automationPaused, emergencyStop } = state.settings
+  if (state.settings.dataMode === "live") return <LiveAutomationPill />
+  return <DemoAutomationPill paused={automationPaused} emergencyStop={emergencyStop} onToggle={actions.toggleAutomation} allowed={can("automation")} />
+}
+
+function DemoAutomationPill({ paused: automationPaused, emergencyStop, onToggle, allowed }: { paused: boolean; emergencyStop: boolean; onToggle: () => void; allowed: boolean }) {
   const running = !automationPaused && !emergencyStop
   const label = emergencyStop ? "緊急停止中" : running ? "自動処理：稼働中" : "自動処理：停止中"
   return (
     <Button
       variant="outline"
       size="sm"
-      onClick={actions.toggleAutomation}
-      disabled={emergencyStop || !can("automation")}
+      onClick={onToggle}
+      disabled={emergencyStop || !allowed}
       className="hidden gap-2 md:inline-flex"
       aria-label={`${label}（クリックで${running ? "一時停止" : "再開"}）`}
     >

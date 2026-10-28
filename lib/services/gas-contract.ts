@@ -13,6 +13,8 @@ export type GasAction =
   | "revealAnswer"
   | "fetchResponses"
   | "checkPostStatus"
+  | "getAutomationStatus"
+  | "setAutomationEnabled"
   | "verifyQuestion"
   | "syncToSheets"
   | "runInsight"
@@ -96,4 +98,45 @@ export interface GasPostJob {
   error: string | null
   dryRun: boolean
   response: Pick<ResponseSnapshot, "responses" | "correct" | "perChoice" | "finalized" | "collectedAt"> | null
+}
+
+/** getAutomationStatus：毎朝の自動投稿の状態（GAS の Daily.gs・Evening.gs） */
+export interface GasPlan {
+  questionId: string
+  version: number
+  /** approved：承認済みを固定 / spare：予備から割り当て */
+  source: string
+  plannedAt: string | null
+}
+export interface GasPostState {
+  outcome: "success" | "unknown"
+  questionId: string
+  version: number
+  postId: string
+  dryRun: boolean
+}
+export interface GasAutomationLog {
+  at: string | null
+  source: string
+  task: string
+  step: string
+  result: string
+  message: string
+}
+export interface GasAutomationStatus {
+  enabled: boolean
+  dryRun: boolean
+  today: string
+  tomorrow: string
+  todayPlan: GasPlan | null
+  tomorrowPlan: GasPlan | null
+  todayCandidates: { questionId: string; version: number }[]
+  tomorrowCandidates: { questionId: string; version: number }[]
+  todayPost: GasPostState | null
+  yesterdayAnswer: GasPostState | null
+  spareCount: number
+  spareMin: number
+  discordConfigured: boolean
+  notifyConfigured: boolean
+  recentLog: GasAutomationLog[]
 }

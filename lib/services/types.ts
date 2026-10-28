@@ -1,5 +1,5 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
-import type { GasPostJob, GasQuestion, GasStatus, SaveQuestionInput } from "./gas-contract"
+import type { GasAutomationStatus, GasPostJob, GasQuestion, GasStatus, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
   scope: AIInsight["scope"]
@@ -31,6 +31,8 @@ export interface QuizBackend {
   listQuestions(): Promise<GasQuestion[]>
   saveQuestion(input: SaveQuestionInput): Promise<GasQuestion>
   listPostJobs(): Promise<GasPostJob[]>
+  getAutomationStatus(): Promise<GasAutomationStatus>
+  setAutomationEnabled(enabled: boolean): Promise<{ enabled: boolean }>
 }
 
 export class NotConnectedError extends Error {

@@ -9,6 +9,7 @@ import { SimpleSelect } from "@/components/shared/simple-select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { PostTable, type PostAction } from "@/components/posts/post-table"
 import { InstagramStock, ScheduleQueue } from "@/components/posts/side-panels"
+import { AutomationCard } from "@/components/posts/automation-card"
 import { PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/components/posts/post-dialogs"
 import { formatTime } from "@/lib/format"
 import { useQuiz } from "@/lib/store/quiz-store"
@@ -195,6 +196,7 @@ export default function PostsPage() {
         </section>
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-1">
+          {isLive && <AutomationCard status={state.liveStatus.automation} />}
           <ScheduleQueue
             questions={waiting}
             disabled={!canPost}
