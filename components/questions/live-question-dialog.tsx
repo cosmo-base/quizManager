@@ -24,10 +24,14 @@ const STATUS_OPTIONS: { value: QuestionStatus; label: string }[] = [
 ]
 
 export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { actions } = useQuiz()
+  const { actions, can } = useQuiz()
+  // GAS は「承認済み」で保存するには承認、下書き・確認待ちで保存するには編集の権限を求める
+  const statusOptions = STATUS_OPTIONS.filter((o) => (o.value === "approved" ? can("approve") : can("edit")))
   const [platform, setPlatform] = useState<Exclude<Platform, "instagram">>(q?.platform === "discord" ? "discord" : "x")
   const [plannedDate, setPlannedDate] = useState(q?.plannedDate ?? "")
-  const [status, setStatus] = useState<QuestionStatus>(q && STATUS_OPTIONS.some((o) => o.value === q.status) ? q.status : "draft")
+  const [status, setStatus] = useState<QuestionStatus>(
+    q && statusOptions.some((o) => o.value === q.status) ? q.status : (statusOptions.find((o) => o.value === "review") ?? statusOptions[0])?.value ?? "draft",
+  )
   const [text, setText] = useState(q?.text ?? "")
   const [choices, setChoices] = useState<string[]>(LABELS.map((l) => q?.choices.find((c) => c.label === l)?.text ?? ""))
   const [answer, setAnswer] = useState<ChoiceLabel>(q?.answer ?? "A")
@@ -94,7 +98,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-status">状態</Label>
-              <SimpleSelect id="lq-status" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+              <SimpleSelect id="lq-status" value={status} onChange={setStatus} options={statusOptions} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">

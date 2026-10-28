@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Download, RefreshCw, RotateCcw, Upload } from "lucide-react"
 import type { AppNotification, DataMode, Role } from "@/lib/types"
 import { useQuiz } from "@/lib/store/quiz-store"
+import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { ROLE_LABEL } from "@/lib/constants"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { SimpleSelect } from "@/components/shared/simple-select"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { PermissionNote } from "@/components/shared/states"
 import { Field, IntegrationList, SettingsCard, SwitchRow } from "@/components/settings/fields"
+import { LiveUsersPanel } from "@/components/settings/live-users"
 
 export function DataSettingsTab({ disabled }: { disabled: boolean }) {
   const { state, data, actions } = useQuiz()
@@ -34,25 +36,32 @@ export function DataSettingsTab({ disabled }: { disabled: boolean }) {
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-      <SettingsCard title="データモード" description="デモモードではサンプルデータと擬似処理のみを使い、外部APIは呼び出しません。">
-        <Field id="data-mode" label="表示するデータ">
-          <SimpleSelect<DataMode>
-            id="data-mode"
-            disabled={disabled}
-            value={state.settings.dataMode}
-            onChange={actions.setDataMode}
-            options={[
-              { value: "demo", label: "デモモード（サンプルデータ）" },
-              { value: "live", label: "実APIモード（バックエンド接続）" },
-            ]}
-          />
-        </Field>
-        <IntegrationList keys={["supabase", "sheets", "storage"]} />
-        <Button variant="outline" className="self-start" disabled={disabled} onClick={() => setConfirmReset(true)}>
-          <RotateCcw aria-hidden />
-          デモデータを初期化
-        </Button>
-      </SettingsCard>
+      {LIVE_AVAILABLE ? (
+        // 本番のビルドは常に正本（GAS・Sheets）のデータ。デモモードは開発用のビルドだけ
+        <SettingsCard title="データ" description="正本（Google Sheets）のデータを表示しています。読み書きは GAS を通して行い、権限も GAS が確かめます。">
+          <IntegrationList keys={["supabase", "sheets", "storage"]} />
+        </SettingsCard>
+      ) : (
+        <SettingsCard title="データモード" description="デモモードではサンプルデータと擬似処理のみを使い、外部APIは呼び出しません。">
+          <Field id="data-mode" label="表示するデータ">
+            <SimpleSelect<DataMode>
+              id="data-mode"
+              disabled={disabled}
+              value={state.settings.dataMode}
+              onChange={actions.setDataMode}
+              options={[
+                { value: "demo", label: "デモモード（サンプルデータ）" },
+                { value: "live", label: "実APIモード（バックエンド接続）" },
+              ]}
+            />
+          </Field>
+          <IntegrationList keys={["supabase", "sheets", "storage"]} />
+          <Button variant="outline" className="self-start" disabled={disabled} onClick={() => setConfirmReset(true)}>
+            <RotateCcw aria-hidden />
+            デモデータを初期化
+          </Button>
+        </SettingsCard>
+      )}
 
       <SettingsCard title="Google Sheets同期" description="確定した回答集計を既存KPIダッシュボード用のシートへ書き込みます。">
         <Field id="sheet-name" label="スプレッドシート名">
@@ -131,6 +140,7 @@ const ROLE_OPTIONS = (Object.keys(ROLE_LABEL) as Role[]).map((r) => ({ value: r,
 export function UsersSettingsTab() {
   const { state, data, actions, can } = useQuiz()
   const canManage = can("users")
+  if (state.settings.dataMode === "live") return <LiveUsersPanel />
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

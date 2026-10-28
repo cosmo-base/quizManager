@@ -117,4 +117,9 @@ export const mockBackend: QuizBackend = {
   getAutomationStatus: () => Promise.reject(new Error("デモモードでは自動投稿の状態を取得しません")),
   setAutomationEnabled: () => Promise.reject(new Error("デモモードでは自動投稿を切り替えません")),
   generateQuestions: () => Promise.reject(new Error("デモモードでは生成ジョブ（擬似処理）を使います")),
+  getMe: () => Promise.reject(new Error("デモモードではログインを使いません")),
+  requestRole: () => Promise.reject(new Error("デモモードでは権限を申請できません")),
+  listUsers: () => Promise.resolve([]),
+  setUserRole: () => Promise.reject(new Error("デモモードでは正本の権限を変えません")),
+  rejectRoleRequest: () => Promise.reject(new Error("デモモードでは正本の権限を変えません")),
 }

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { LogOut, Moon, Sun, Pause, Play, UserRound } from "lucide-react"
+import { KeyRound, LogOut, Moon, Sun, Pause, Play, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { titleForPath } from "./nav-items"
 import { GlobalSearch } from "./global-search"
 import { NotificationsPopover } from "./notifications-popover"
+import { RoleRequestDialog } from "@/components/shared/role-request-dialog"
 
 /** 実APIモード：GAS の AUTOMATION_ENABLED を表示し、確認のうえ切り替える */
 function LiveAutomationPill() {
@@ -128,43 +129,68 @@ function GoogleSignIn() {
 function UserMenu() {
   const { state, actions } = useQuiz()
   const auth = useGoogleAuth()
+  const [requesting, setRequesting] = useState(false)
+  const live = state.settings.dataMode === "live"
+  const me = state.liveStatus.me
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-2" />}>
-        <UserRound className="size-4" aria-hidden />
-        <span className="hidden text-sm sm:inline">{state.userName}</span>
-        <span className="rounded bg-secondary px-1.5 text-[11px] text-secondary-foreground">{ROLE_LABEL[state.role]}</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {auth.email && (
-          <>
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="truncate text-xs font-normal">{auth.email}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={auth.signOut}>
-                <LogOut aria-hidden />
-                ログアウト
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>表示権限の切替（デモ）</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={state.role} onValueChange={(v) => actions.setRole(v as Role)}>
-            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
-              <DropdownMenuRadioItem key={r} value={r}>
-                {ROLE_LABEL[r]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        {/* Base UI の Label は Group の内側でないとエラーになる */}
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs font-normal leading-relaxed text-muted-foreground">本番ではGoogleログインのユーザー権限が適用されます</DropdownMenuLabel>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="gap-2" />}>
+          <UserRound className="size-4" aria-hidden />
+          <span className="hidden max-w-40 truncate text-sm sm:inline">{state.userName}</span>
+          <span className="rounded bg-secondary px-1.5 text-[11px] text-secondary-foreground">{ROLE_LABEL[state.role]}</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          {auth.email && (
+            <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5 text-xs font-normal">
+                  <span className="truncate">{auth.email}</span>
+                  {live && me && (
+                    <span className="text-muted-foreground">
+                      権限：{ROLE_LABEL[me.role]}
+                      {me.fixed && "（固定）"}
+                      {me.pendingRequest && `・${ROLE_LABEL[me.pendingRequest.role]}を申請中`}
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+                {live && me && !me.fixed && me.role !== "admin" && (
+                  <DropdownMenuItem onClick={() => setRequesting(true)}>
+                    <KeyRound aria-hidden />
+                    権限を申請…
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={auth.signOut}>
+                  <LogOut aria-hidden />
+                  ログアウト
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {!live && <DropdownMenuSeparator />}
+            </>
+          )}
+          {!live && (
+            <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>表示権限の切替（デモ）</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={state.role} onValueChange={(v) => actions.setRole(v as Role)}>
+                  {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
+                    <DropdownMenuRadioItem key={r} value={r}>
+                      {ROLE_LABEL[r]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              {/* Base UI の Label は Group の内側でないとエラーになる */}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs font-normal leading-relaxed text-muted-foreground">本番ではGoogleログインのユーザー権限が適用されます</DropdownMenuLabel>
+              </DropdownMenuGroup>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {live && me && <RoleRequestDialog open={requesting} onOpenChange={setRequesting} />}
+    </>
   )
 }
 

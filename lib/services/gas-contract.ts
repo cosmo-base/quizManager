@@ -1,7 +1,7 @@
 // GAS Web アプリとの通信契約（決定事項：ロジックは GAS、データの正本は Google Sheets）。
 // 管理画面は Google ログインの ID トークンを付けて POST し、GAS 側で検証・許可メールアドレスと照合する。
 // GAS 側の実装：WebApp.gs（振り分け）・Questions.gs・Posting.gs
-import type { ChoiceLabel, Choice, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot } from "@/lib/types"
+import type { ChoiceLabel, Choice, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot, Role } from "@/lib/types"
 
 export type GasAction =
   | "testConnection"
@@ -17,6 +17,11 @@ export type GasAction =
   | "setAutomationEnabled"
   | "verifyQuestion"
   | "generateQuestions"
+  | "getMe"
+  | "requestRole"
+  | "listUsers"
+  | "setUserRole"
+  | "rejectRoleRequest"
   | "syncToSheets"
   | "runInsight"
 
@@ -30,7 +35,37 @@ export interface GasRequest<P = unknown> {
 export type GasResponse<T> =
   | { ok: true; data: T }
   /** outcome=unknown は成否不明。UI から自動で再実行しないこと */
-  | { ok: false; outcome: "failed" | "unknown"; error: string }
+  /** reason=not_allowed は ALLOWED_EMAILS に無いアカウント（ログイン画面で案内する） */
+  | { ok: false; outcome: "failed" | "unknown"; error: string; reason?: "not_allowed" }
+
+/** 権限の申請（管理者が承認・却下するまで残る） */
+export interface GasRoleRequest {
+  role: Role
+  note: string
+  at: string | null
+}
+
+/** getMe：ログインした人。権限は GAS が決める（USER_ROLES で固定、または管理者が付けたもの。無ければ閲覧者） */
+export interface GasMe {
+  email: string
+  name: string
+  role: Role
+  /** USER_ROLES で固定（画面では変えられない） */
+  fixed: boolean
+  pendingRequest: GasRoleRequest | null
+}
+
+/** listUsers：ALLOWED_EMAILS・USER_ROLES・これまでの記録に出てくる人 */
+export interface GasUser {
+  email: string
+  name: string
+  role: Role
+  fixed: boolean
+  /** ALLOWED_EMAILS に入っている（ログインできる） */
+  allowed: boolean
+  pendingRequest: GasRoleRequest | null
+  lastSeenAt: string | null
+}
 
 /** getStatus：X_DRY_RUN / DISCORD_DRY_RUN が有効ならその媒体には投稿しない */
 export interface GasStatus {

@@ -15,7 +15,11 @@ export function setGasIdToken(token: string | null) {
 }
 
 export class GasError extends Error {
-  constructor(public readonly outcome: "failed" | "unknown", message: string) {
+  constructor(
+    public readonly outcome: "failed" | "unknown",
+    message: string,
+    public readonly reason?: "not_allowed",
+  ) {
     super(message)
     this.name = "GasError"
   }
@@ -39,6 +43,6 @@ export async function callGas<T>(action: GasAction, payload: unknown, operation:
   if (!res.ok) throw new GasError("unknown", `GAS が HTTP ${res.status} を返しました`)
 
   const body = (await res.json()) as GasResponse<T>
-  if (!body.ok) throw new GasError(body.outcome, body.error)
+  if (!body.ok) throw new GasError(body.outcome, body.error, body.reason)
   return body.data
 }
