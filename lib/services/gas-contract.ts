@@ -88,6 +88,11 @@ export interface GasAiStatus {
   search: boolean
   monthCostJpy: number
   budgetJpy: number
+  /** 今日の Gemini 呼び出しの回数と上限（AI_DAILY_CALL_LIMIT）。古い GAS では無い */
+  callsToday?: number
+  dailyCallLimit?: number
+  /** 毎朝 9:00 の AI 自動生成（AI_DAILY_GENERATION など） */
+  daily?: { enabled: boolean; target: number; max: number; verify: boolean; reserve: number }
 }
 
 /** verifyQuestion：その版のファクトチェック。sources は出典（記録用。投稿本文には入れない） */
