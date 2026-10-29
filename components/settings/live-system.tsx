@@ -56,6 +56,9 @@ export function LiveSystemSettings() {
     { label: "Discord への投稿", value: dv, tone: dt, keyName: "DISCORD_DRY_RUN", note: discordConfigured ? "false のときだけ実際に投稿します" : "Bot（DISCORD_BOT_TOKEN・DISCORD_QUIZ_CHANNEL_ID）が未設定です" },
     { label: "実際に投稿するときの 2 つ目の鍵", value: config.allowLivePost ? "許可" : "止めている", tone: config.allowLivePost ? "warning" : "muted", keyName: "ALLOW_LIVE_POST" },
     { label: "Discord への送信経路", value: config.discordRelay ? "Supabase の中継" : "直接", tone: config.discordRelay ? "success" : discordConfigured ? "warning" : "muted", keyName: "DISCORD_RELAY_URL", note: "GAS から直接だと Discord に拒否されるため、中継が必要です" },
+    ...(config.quizCards === undefined
+      ? []
+      : [{ label: "Discord のカード画像", value: config.quizCards ? "付ける" : "未設定（文章だけ）", tone: config.quizCards ? "success" : "warning", keyName: "QUIZ_CARD_TEMPLATE_ID", note: "GAS で setupQuizCardTemplate を実行すると設定されます。問題・正解に画像を付けます" } satisfies Row]),
     { label: "管理画面に投稿へのリンクを出す", value: config.discordGuild ? "出す" : "出さない", tone: config.discordGuild ? "success" : "muted", keyName: "DISCORD_GUILD_ID" },
   ]
   const auto: Row[] = [

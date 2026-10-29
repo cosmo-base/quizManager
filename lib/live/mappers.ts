@@ -21,6 +21,8 @@ export function toQuestion(g: GasQuestion, jobs: PostJob[], responses: ResponseS
     id: g.id,
     knowledgeId: g.id,
     topic: g.topic ?? "",
+    lead: g.lead ?? "",
+    cardSummary: g.cardSummary ?? "",
     text: g.text,
     choices: g.choices,
     answer: g.answer,

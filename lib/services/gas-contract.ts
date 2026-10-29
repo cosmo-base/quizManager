@@ -28,6 +28,7 @@ export type GasAction =
   | "rejectRoleRequest"
   | "syncToSheets"
   | "runInsight"
+  | "renderQuizCard"
 
 export interface GasRequest<P = unknown> {
   action: GasAction
@@ -95,6 +96,8 @@ export interface GasConfigSummary {
   notifyEmail: boolean
   supabaseHeartbeat: boolean
   spareMinStock: number
+  /** カード画像のテンプレート（QUIZ_CARD_TEMPLATE_ID）。古い GAS では無い */
+  quizCards?: boolean
 }
 
 /** AI（Gemini）の状態。monthCostJpy・budgetJpy は有料枠に換算した概算 */
@@ -153,6 +156,9 @@ export interface GasQuestion {
   category?: string | null
   /** 題材（「木星」など。未設定なら null） */
   topic?: string | null
+  /** 前振り・画像（正解カード）用の短い解説（古い GAS では無い） */
+  lead?: string
+  cardSummary?: string
   /** この版を保存したときのメモ（差し戻し・不採用の理由など） */
   note?: string
   savedBy: string
@@ -177,6 +183,9 @@ export interface SaveQuestionInput {
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
   topic?: string | null
+  /** 省略すると前の版の値を引き継ぐ */
+  lead?: string
+  cardSummary?: string
 }
 
 /** importQuestions：Excel・CSV から読み込んだ問題を下書きでまとめて登録する（1 回 100 問まで） */
@@ -193,6 +202,8 @@ export interface ImportQuestionInput {
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
   topic?: string | null
+  lead?: string
+  cardSummary?: string
 }
 export interface ImportQuestionsResult {
   saved: { ref: string; id: string; platform: Platform }[]

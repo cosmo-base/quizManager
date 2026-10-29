@@ -45,6 +45,8 @@ export interface QuizBackend {
   importQuestions(rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult>
   /** 1 問の全版（古い順） */
   getQuestionHistory(questionId: string): Promise<GasQuestion[]>
+  /** 問題カード・正解カードの画像（data URL） */
+  renderQuizCard(questionId: string, kind: "question" | "answer"): Promise<{ dataUrl: string }>
   /** ログインした人と、その権限 */
   getMe(): Promise<GasMe>
   requestRole(role: Role, note: string): Promise<{ pendingRequest: GasRoleRequest }>

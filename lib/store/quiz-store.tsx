@@ -333,6 +333,9 @@ function useQuizStoreValue() {
   /** 1 問の全版（古い順）。読めなければ null */
   const loadLiveHistory = async (id: string) => callBackend("履歴の取得", (b) => b.getQuestionHistory(id))
 
+  /** カード画像（data URL）。作れなければ null */
+  const renderLiveCard = async (id: string, kind: "question" | "answer") => (await callBackend("カード画像の作成", (b) => b.renderQuizCard(id, kind)))?.dataUrl ?? null
+
   /** Excel・CSV から読み込んだ問題を下書きで正本に登録する（100 問ずつ送る） */
   const importLiveQuestions = async (rows: ImportQuestionInput[], fileName: string): Promise<ImportQuestionsResult | null> => {
     if (!guard("問題の取り込み", "edit", { live: true })) return null
@@ -1701,6 +1704,7 @@ function useQuizStoreValue() {
     saveLiveQuestion,
     importLiveQuestions,
     loadLiveHistory,
+    renderLiveCard,
     setLiveAutomation,
     liveGenerate,
     assignLiveDate,

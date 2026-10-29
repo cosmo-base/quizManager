@@ -189,8 +189,8 @@ export function LiveAlertsPanel() {
   )
 }
 
-const RESULT_TONE: Record<string, Tone> = { done: "success", ok: "success", skip: "muted", error: "danger", notified: "warning" }
-const TASK_LABEL: Record<string, string> = { dailyPost: "投稿", precheck: "点検", heartbeat: "ハートビート", reminder: "18:00 確認", confirm: "21:00 確定", setting: "設定" }
+const RESULT_TONE: Record<string, Tone> = { done: "success", ok: "success", skip: "muted", error: "danger", notified: "warning", start: "info" }
+const TASK_LABEL: Record<string, string> = { dailyPost: "投稿", generate: "AI 自動生成", precheck: "点検", heartbeat: "ハートビート", reminder: "18:00 確認", confirm: "21:00 確定", setting: "設定" }
 
 export function LiveActivityPanel() {
   const { state } = useQuiz()
