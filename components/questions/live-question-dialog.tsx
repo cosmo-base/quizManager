@@ -49,6 +49,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [topic, setTopic] = useState(q?.topic ?? "")
   const [lead, setLead] = useState(q?.lead ?? "")
   const [cardSummary, setCardSummary] = useState(q?.cardSummary ?? "")
+  const [manualApproval, setManualApproval] = useState("")
   const categoryOptions = [{ value: "none", label: "未設定" }, ...data.categories.map((c) => ({ value: c.id, label: c.name }))]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -75,6 +76,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
       topic: topic.trim() || null,
       lead: lead.trim(),
       cardSummary: cardSummary.trim(),
+      manualApproval: status === "approved" ? manualApproval.trim() || undefined : undefined,
     })
     setSaving(false)
     if (saved) {
@@ -111,8 +113,8 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-status">状態</Label>
               <SimpleSelect id="lq-status" value={status} onChange={setStatus} options={statusOptions} />
-              {status === "approved" && (!q || q.status !== "approved") && (
-                <span className="text-xs text-muted-foreground">承認済みにするには、この内容でのファクトチェック（要確認以上）が要ります</span>
+              {status === "approved" && (
+                <span className="text-xs text-muted-foreground">承認済みにするには、この内容でのファクトチェック（要確認以上）か、下の「人の判断で承認する理由」が要ります</span>
               )}
             </div>
             <div className="flex flex-col gap-1.5">
@@ -183,6 +185,15 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
                 <span className="ml-2 text-xs font-normal text-muted-foreground">正解カードに載せる文。空欄なら解説の冒頭を使います（{cardSummary.length}/{CARD_SUMMARY_MAX}）</span>
               </Label>
               <Textarea id="lq-card" value={cardSummary} maxLength={CARD_SUMMARY_MAX} onChange={(e) => setCardSummary(e.target.value)} rows={2} />
+            </div>
+          )}
+          {status === "approved" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lq-manual">
+                人の判断で承認する理由（ファクトチェックがまだのときだけ使われます）
+              </Label>
+              <Input id="lq-manual" value={manualApproval} maxLength={200} onChange={(e) => setManualApproval(e.target.value)} placeholder="例：JAXA の公式ページで数値を確認した" />
+              <span className="text-xs text-muted-foreground">検証NG の問題は、理由があっても承認できません。理由はバージョン履歴のメモに残ります</span>
             </div>
           )}
           {q && (

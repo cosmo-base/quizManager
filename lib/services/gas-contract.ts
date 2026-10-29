@@ -183,6 +183,8 @@ export interface SaveQuestionInput {
   difficulty?: Exclude<Difficulty, "auto"> | null
   category?: string | null
   topic?: string | null
+  /** ファクトチェックをしていない中身を、人の判断で承認するときの理由（検証NG は不可） */
+  manualApproval?: string
   /** 省略すると前の版の値を引き継ぐ */
   lead?: string
   cardSummary?: string

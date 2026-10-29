@@ -417,16 +417,16 @@ function useQuizStoreValue() {
   }
 
   /** 状態だけを変えて新しい版を保存する（承認・差し戻し・不採用） */
-  const setLiveQuestionStatus = (id: string, status: SaveQuestionInput["status"], note: string) => {
+  const setLiveQuestionStatus = (id: string, status: SaveQuestionInput["status"], note: string, manualApproval?: string) => {
     if (!guard("状態の変更", "approve", { live: true })) return false
     const q = stateRef.current.live.questions.find((x) => x.id === id)
     if (!q) return false
-    // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる）
-    if (status === "approved" && (q.factCheck.status === "pending" || q.factCheck.status === "failed")) {
-      toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "先に再検証を実行してください" })
+    // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる。未検証は理由を書けば人の判断で承認できる）
+    if (status === "approved" && (q.factCheck.status === "failed" || (q.factCheck.status === "pending" && !manualApproval?.trim()))) {
+      toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" })
       return false
     }
-    void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status, note })
+    void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status, note, manualApproval: manualApproval?.trim() || undefined })
     return true
   }
 
@@ -1017,8 +1017,9 @@ function useQuizStoreValue() {
     toast.success(label("確定版から画像を再生成しています"))
   }
 
-  const approve = (id: string, note = "") => {
-    if (!isDemo()) return setLiveQuestionStatus(id, "approved", note || "承認")
+  /** manualApproval：実APIモードで、ファクトチェックをしていない問題を人の判断で承認するときの理由 */
+  const approve = (id: string, note = "", manualApproval?: string) => {
+    if (!isDemo()) return setLiveQuestionStatus(id, "approved", note || "承認", manualApproval)
     if (!guard("承認", "approve")) return false
     const q = stateRef.current.demo.questions.find((x) => x.id === id)
     if (!q) return false
