@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 import { DISCORD_EMOJI } from "@/lib/discord-format"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
 import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
-import { questionError, TOPIC_MAX } from "@/lib/question-validate"
+import { CARD_SUMMARY_MAX, LEAD_MAX, questionError, TOPIC_MAX } from "@/lib/question-validate"
 import { SimilarWarning } from "@/components/questions/live-suggestion"
 
 const LABELS: ChoiceLabel[] = ["A", "B", "C"]
@@ -47,6 +47,8 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [difficulty, setDifficulty] = useState<Difficulty>(q?.difficulty ?? "auto")
   const [category, setCategory] = useState(q?.categoryId || "none")
   const [topic, setTopic] = useState(q?.topic ?? "")
+  const [lead, setLead] = useState(q?.lead ?? "")
+  const [cardSummary, setCardSummary] = useState(q?.cardSummary ?? "")
   const categoryOptions = [{ value: "none", label: "未設定" }, ...data.categories.map((c) => ({ value: c.id, label: c.name }))]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -55,7 +57,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const invalid = questionError({ text, choices, answer, explanation }, platform)
+    const invalid = questionError({ text, choices, answer, explanation, lead, cardSummary }, platform)
     if (invalid) return setError(invalid)
     setSaving(true)
     const saved = await actions.saveLiveQuestion({
@@ -71,6 +73,8 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
       difficulty: difficulty === "auto" ? null : difficulty,
       category: category === "none" ? null : category,
       topic: topic.trim() || null,
+      lead: lead.trim(),
+      cardSummary: cardSummary.trim(),
     })
     setSaving(false)
     if (saved) {
@@ -125,6 +129,12 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="lq-lead">
+              前振り（任意）<span className="ml-2 text-xs font-normal text-muted-foreground">問題文の前に入る背景。答えは書かない（{lead.length}/{LEAD_MAX}）</span>
+            </Label>
+            <Textarea id="lq-lead" value={lead} maxLength={LEAD_MAX} onChange={(e) => setLead(e.target.value)} rows={3} />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="lq-text">問題文</Label>
             <Textarea id="lq-text" value={text} onChange={(e) => setText(e.target.value)} rows={3} />
             <SimilarWarning text={text} answerText={choices[LABELS.indexOf(answer)]} exclude={q?.id} />
@@ -132,7 +142,7 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">
               選択肢と正解
-              {platform === "x" && <span className="ml-2 text-xs font-normal text-muted-foreground">X の投票には「1. 〜」の形で入ります（番号込み {X_POLL_OPTION_MAX} 文字まで）</span>}
+              {platform === "x" && <span className="ml-2 text-xs font-normal text-muted-foreground">X の投票には「①〜」の形で入ります（番号込み {X_POLL_OPTION_MAX} 文字まで）</span>}
               {platform === "discord" && (
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
                   Discord では {LABELS.map((l) => DISCORD_EMOJI[l]).join("")} のリアクションで回答します（複数選んだ回答は無効）
@@ -163,9 +173,18 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
             ))}
           </fieldset>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lq-exp">解説（翌朝の{platform === "discord" ? "返信" : "リプライ"}）</Label>
-            <Textarea id="lq-exp" value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={3} />
+            <Label htmlFor="lq-exp">解説（翌朝の{platform === "discord" ? "正解発表" : "引用リポスト"}）</Label>
+            <Textarea id="lq-exp" value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={5} />
           </div>
+          {platform === "discord" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lq-card">
+                画像用の短い解説（任意）
+                <span className="ml-2 text-xs font-normal text-muted-foreground">正解カードに載せる文。空欄なら解説の冒頭を使います（{cardSummary.length}/{CARD_SUMMARY_MAX}）</span>
+              </Label>
+              <Textarea id="lq-card" value={cardSummary} maxLength={CARD_SUMMARY_MAX} onChange={(e) => setCardSummary(e.target.value)} rows={2} />
+            </div>
+          )}
           {q && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-note">変更理由（任意）</Label>

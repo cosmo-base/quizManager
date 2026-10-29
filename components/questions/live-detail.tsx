@@ -4,6 +4,7 @@
 // 類似・関連問題（問題文の近さと同じ題材。Gemini は使わない）。
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlatformMark } from "@/components/shared/platform-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -82,10 +83,12 @@ export function LiveVersionsTab({ history, loading }: { history: GasQuestion[] |
   const fields: Field[] = [
     { label: "状態", value: (v) => QUESTION_STATUS[v.status].label },
     { label: "出題日", value: (v) => (v.plannedDate ? formatDate(v.plannedDate) : "未設定") },
+    { label: "前振り", value: (v) => v.lead || "なし", long: true },
     { label: "問題文", value: (v) => v.text, long: true },
     { label: "選択肢", value: (v) => v.choices.map((c) => `${c.label}. ${c.text}`).join(" / "), long: true },
     { label: "正解", value: (v) => v.answer },
     { label: "解説", value: (v) => v.explanation, long: true },
+    { label: "短い解説", value: (v) => v.cardSummary || "なし", long: true },
     { label: "難易度", value: (v) => (v.difficulty ? DIFFICULTY_LABEL[v.difficulty] : "未設定") },
     { label: "分類", value: (v) => (v.category ? categoryName(v.category) : "未設定") },
     { label: "題材", value: (v) => v.topic || "未設定" },
@@ -186,6 +189,45 @@ export function LiveRelatedTab({ q, questions }: { q: Question; questions: Quest
           </ul>
         )}
       </Section>
+    </div>
+  )
+}
+
+/** Discord のカード画像（問題カード・正解カード）。GAS がスライドのテンプレートから作る（1 枚 10 秒ほど） */
+export function LiveCardPreview({ q }: { q: Question }) {
+  const { actions, state } = useQuiz()
+  const configured = state.liveStatus.config?.quizCards
+  const [kind, setKind] = useState<"question" | "answer">("question")
+  const [images, setImages] = useState<Partial<Record<"question" | "answer", string>>>({})
+  const [loading, setLoading] = useState(false)
+  const version = q.versions[0]?.version
+  useEffect(() => setImages({}), [q.id, version])
+  if (configured === false) return <Empty>カード画像のテンプレートが未設定です（GAS で setupQuizCardTemplate を実行してください）。未設定のあいだは文章だけで投稿します。</Empty>
+  const render = async () => {
+    setLoading(true)
+    const url = await actions.renderLiveCard(q.id, kind)
+    setLoading(false)
+    if (url) setImages((prev) => ({ ...prev, [kind]: url }))
+  }
+  const image = images[kind]
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {(["question", "answer"] as const).map((k) => (
+          <Button key={k} type="button" size="sm" variant={kind === k ? "secondary" : "ghost"} aria-pressed={kind === k} onClick={() => setKind(k)}>
+            {k === "question" ? "問題カード" : "正解カード"}
+          </Button>
+        ))}
+        <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={render} disabled={loading}>
+          {loading ? "作成中…" : image ? "作り直す" : "画像を作る"}
+        </Button>
+      </div>
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt={kind === "question" ? "問題カード" : "正解カード"} className="w-full rounded-md border" />
+      ) : (
+        <Empty>{kind === "question" ? "当日の問題に付ける画像です。" : "翌朝の正解発表に付ける画像です（短い解説が空欄なら解説の冒頭を使います）。"}「画像を作る」で確認できます。</Empty>
+      )}
     </div>
   )
 }

@@ -25,7 +25,7 @@ import { formatCount, formatDateTime, formatPercent } from "@/lib/format"
 import type { CheckResult, PostJob, Question, ReviewEntry, SystemSettings } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { responseStats, reusableDate } from "./library-utils"
-import { LiveNoteHistory, LiveRelatedTab, LiveVersionsTab, useLiveHistory } from "./live-detail"
+import { LiveCardPreview, LiveNoteHistory, LiveRelatedTab, LiveVersionsTab, useLiveHistory } from "./live-detail"
 import type { GasQuestion } from "@/lib/services/gas-contract"
 
 export const CHECK: Record<CheckResult, { label: string; tone: Tone }> = {
@@ -176,9 +176,16 @@ function ContentTab({ q, categoryName }: { q: Question; categoryName: (id: strin
           </dl>
         </Section>
         {live ? (
-          <Section title="投稿内容プレビュー">
-            <PostTextPreview q={q} />
-          </Section>
+          <>
+            <Section title="投稿内容プレビュー">
+              <PostTextPreview q={q} />
+            </Section>
+            {q.platform === "discord" && (
+              <Section title="カード画像">
+                <LiveCardPreview q={q} />
+              </Section>
+            )}
+          </>
         ) : (
         <Section title="投稿画像">
           <div className="flex flex-col gap-3">

@@ -3,18 +3,20 @@
 import { strToU8, zipSync } from "fflate"
 import type { ImportQuestionInput } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty, Platform } from "@/lib/types"
-import { CHOICE_LABELS, normalizeQuestionText, questionError, TOPIC_MAX, URL_PATTERN } from "@/lib/question-validate"
+import { CARD_SUMMARY_MAX, CHOICE_LABELS, LEAD_MAX, normalizeQuestionText, questionError, TOPIC_MAX, URL_PATTERN } from "@/lib/question-validate"
 import { findSimilar, SIMILAR_WARN } from "@/lib/similarity"
 
 export type ImportPlatform = Exclude<Platform, "instagram"> | "both"
 
 export const FIELDS = [
+  { key: "lead", label: "前振り", required: false, aliases: ["前振り", "前置き", "導入", "リード", "lead", "intro"] },
   { key: "text", label: "問題文", required: true, aliases: ["問題文", "問題", "設問", "クイズ", "question", "q"] },
   { key: "choiceA", label: "選択肢A", required: true, aliases: ["選択肢a", "選択肢1", "選択肢①", "選択肢ア", "答え1", "答え①", "回答1", "回答①", "a", "1", "①", "ア", "選択肢", "choicea", "choice1", "option1"] },
   { key: "choiceB", label: "選択肢B", required: true, aliases: ["選択肢b", "選択肢2", "選択肢②", "選択肢イ", "答え2", "答え②", "回答2", "回答②", "b", "2", "②", "イ", "choiceb", "choice2", "option2"] },
   { key: "choiceC", label: "選択肢C", required: true, aliases: ["選択肢c", "選択肢3", "選択肢③", "選択肢ウ", "答え3", "答え③", "回答3", "回答③", "c", "3", "③", "ウ", "choicec", "choice3", "option3"] },
   { key: "answer", label: "正解", required: true, aliases: ["正解", "答え", "解答", "正答", "answer", "correct"] },
   { key: "explanation", label: "解説", required: true, aliases: ["解説", "説明", "解説文", "explanation"] },
+  { key: "cardSummary", label: "画像用の短い解説", required: false, aliases: ["画像用の短い解説", "画像用解説", "短い解説", "カード用解説", "cardsummary", "summary"] },
   { key: "platform", label: "媒体", required: false, aliases: ["媒体", "投稿先", "platform", "sns"] },
   { key: "difficulty", label: "難易度", required: false, aliases: ["難易度", "難しさ", "レベル", "difficulty", "level"] },
   { key: "category", label: "分類", required: false, aliases: ["分類", "カテゴリ", "カテゴリー", "ジャンル", "category", "genre"] },
@@ -158,6 +160,8 @@ export interface ImportRow {
   category: string | null
   categoryError?: string
   topic: string
+  lead: string
+  cardSummary: string
   note: string
   /** 画面で外した行は登録しない */
   include: boolean
@@ -195,6 +199,8 @@ export function buildRows(rows: string[][], headerRow: number, columns: ColumnMa
       category: category.value,
       categoryError: category.error,
       topic: cell(r, "topic"),
+      lead: cell(r, "lead"),
+      cardSummary: cell(r, "cardSummary"),
       note: cell(r, "note"),
       include: true,
     })
@@ -214,7 +220,7 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
   if (row.topic.length > TOPIC_MAX) return `題材は ${TOPIC_MAX} 文字までにしてください`
   if (URL_PATTERN.test(row.topic)) return "題材に URL は入れられません"
   for (const p of targetPlatforms(row.platform)) {
-    const e = questionError({ text: row.text, choices: row.choices, answer: row.answer, explanation: row.explanation }, p)
+    const e = questionError({ text: row.text, choices: row.choices, answer: row.answer, explanation: row.explanation, lead: row.lead, cardSummary: row.cardSummary }, p)
     if (e) return (row.platform === "both" ? `${p === "x" ? "X" : "Discord"} 用：` : "") + e
     const key = `${p}:${normalizeQuestionText(row.text)}`
     if (existing.has(key)) return `${p === "x" ? "X" : "Discord"} に同じ問題文の問題がすでにあります`
@@ -250,6 +256,8 @@ export function toImportInputs(row: ImportRow, fileName: string): ImportQuestion
     difficulty: row.difficulty,
     category: row.category,
     topic: row.topic.trim() || null,
+    lead: row.lead.trim(),
+    cardSummary: row.cardSummary.trim(),
     note: [`Excel から登録（${fileName} ${row.rowNo} 行目）`, row.note].filter(Boolean).join(" / "),
   }))
 }
@@ -260,22 +268,22 @@ export function toImportInputs(row: ImportRow, fileName: string): ImportQuestion
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
-/** 媒体（A 列）・難易度（H 列）・分類（I 列）のプルダウン */
+/** 媒体（A 列）・難易度（J 列）・分類（K 列）のプルダウン */
 function validations(categories: Category[]): string {
   const list = (ref: string, items: string[]) =>
     `<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="${ref}"><formula1>"${esc(items.join(","))}"</formula1></dataValidation>`
   const items = [
     list("A2:A1000", ["X", "Discord", "両方"]),
-    list("H2:H1000", ["初級", "中級", "上級"]),
-    ...(categories.length ? [list("I2:I1000", categories.map((c) => c.name))] : []),
+    list("J2:J1000", ["初級", "中級", "上級"]),
+    ...(categories.length ? [list("K2:K1000", categories.map((c) => c.name))] : []),
   ]
   return `<dataValidations count="${items.length}">${items.join("")}</dataValidations>`
 }
 
 const TEMPLATE_ROWS = [
-  ["媒体", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "難易度", "分類", "題材", "出題日", "メモ"],
-  ["X", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "初級", "天文", "木星", "", "例：X 用"],
-  ["両方", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "初級", "宇宙基礎", "月", "", "例：X と Discord の両方に登録"],
+  ["媒体", "前振り", "問題文", "選択肢A", "選択肢B", "選択肢C", "正解", "解説", "画像用の短い解説", "難易度", "分類", "題材", "出題日", "メモ"],
+  ["X", "太陽系には大きさのまったく違う 8 つの惑星があります。", "太陽系で一番大きな惑星はどれでしょう？", "土星", "木星", "海王星", "B", "木星の直径は地球の約11倍で、太陽系最大の惑星です。", "", "初級", "天文", "木星", "", "例：X 用"],
+  ["両方", "", "月の表面で、暗く見える平らな部分を何と呼ぶでしょう？", "海", "陸", "谷", "A", "月の「海」は、玄武岩の溶岩が広がってできた平らな低地です。", "月の「海」は、溶岩が広がって固まった平らな低地です。", "初級", "宇宙基礎", "月", "", "例：X と Discord の両方に登録（画像用の短い解説は Discord の正解カードだけで使う）"],
 ]
 
 /** 取り込み用のテンプレートを .xlsx で作る（文字はすべてインライン文字列）。媒体・難易度・分類は Excel のプルダウンで選べる */
@@ -285,7 +293,7 @@ export function buildTemplateXlsx(categories: Category[]): Uint8Array {
     (r, ri) =>
       `<row r="${ri + 1}">${r.map((v, ci) => (v ? `<c r="${col(ci)}${ri + 1}" t="inlineStr"${ri === 0 ? ' s="1"' : ""}><is><t>${esc(v)}</t></is></c>` : "")).join("")}</row>`,
   ).join("")
-  const widths = [8, 50, 16, 16, 16, 6, 50, 8, 12, 14, 12, 24]
+  const widths = [8, 40, 50, 16, 16, 16, 6, 50, 30, 8, 12, 14, 12, 24]
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols><sheetData>${rowsXml}</sheetData>${validations(categories)}</worksheet>`
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`
   return zipSync({

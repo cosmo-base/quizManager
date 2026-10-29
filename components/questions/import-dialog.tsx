@@ -32,7 +32,7 @@ import {
   type ImportPlatform,
   type ImportRow,
 } from "@/lib/import/question-import"
-import { CHOICE_LABELS, normalizeQuestionText, TOPIC_MAX } from "@/lib/question-validate"
+import { CARD_SUMMARY_MAX, CHOICE_LABELS, LEAD_MAX, normalizeQuestionText, TOPIC_MAX } from "@/lib/question-validate"
 import type { ImportQuestionsResult } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty } from "@/lib/types"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
@@ -521,6 +521,10 @@ function ReviewRow({
                 <Input id={`${id}-topic`} value={row.topic} maxLength={TOPIC_MAX} onChange={(e) => onChange({ topic: e.target.value })} placeholder="例：木星" />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-6">
+                <Label htmlFor={`${id}-lead`}>前振り（任意）</Label>
+                <Textarea id={`${id}-lead`} rows={2} value={row.lead} maxLength={LEAD_MAX} onChange={(e) => onChange({ lead: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-6">
                 <Label htmlFor={`${id}-text`}>問題文</Label>
                 <Textarea id={`${id}-text`} rows={2} value={row.text} onChange={(e) => onChange({ text: e.target.value })} />
               </div>
@@ -537,6 +541,10 @@ function ReviewRow({
               <div className="flex flex-col gap-1.5 sm:col-span-6">
                 <Label htmlFor={`${id}-exp`}>解説</Label>
                 <Textarea id={`${id}-exp`} rows={3} value={row.explanation} onChange={(e) => onChange({ explanation: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-6">
+                <Label htmlFor={`${id}-card`}>画像用の短い解説（任意・Discord の正解カード）</Label>
+                <Textarea id={`${id}-card`} rows={2} value={row.cardSummary} maxLength={CARD_SUMMARY_MAX} onChange={(e) => onChange({ cardSummary: e.target.value })} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-6">
                 <Label htmlFor={`${id}-note`}>メモ（任意）</Label>

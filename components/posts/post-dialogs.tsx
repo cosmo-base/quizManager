@@ -9,7 +9,7 @@ import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import { buildDiscordAnswerText, buildDiscordQuestionText, DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
-import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX } from "@/lib/x-poll"
+import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, X_COMMUNITY_TEXT, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX } from "@/lib/x-poll"
 import type { Platform, Question } from "@/lib/types"
 
 export function PostPreviewDialog({
@@ -55,12 +55,17 @@ export function PostPreviewDialog({
                 <li className="text-xs text-muted-foreground">X標準アンケート ・ 投票期間{X_POLL_DURATION_MINUTES}分（翌05:50締切）・ 画像なし</li>
               </ul>
               <div className="flex flex-col gap-1 border-l-2 pl-3">
-                <span className="text-xs text-muted-foreground">翌朝のリプライ（正解・解説）</span>
+                <span className="text-xs text-muted-foreground">直後のスレッド返信（コミュニティーへの誘導）</span>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{X_COMMUNITY_TEXT}</p>
+              </div>
+              <div className="flex flex-col gap-1 border-l-2 pl-3">
+                <span className="text-xs text-muted-foreground">翌朝の引用リポスト（正解・解説）</span>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildXAnswerText(q)}</p>
               </div>
             </>
           ) : (
             <>
+              <span className="text-xs text-muted-foreground">当日の問題（問題カードの画像付き）</span>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildDiscordQuestionText(q)}</p>
               <ul className="flex flex-wrap items-center gap-1.5 text-sm" aria-label="Bot が付けるリアクション">
                 {(["A", "B", "C"] as const).map((l) => (
@@ -76,7 +81,7 @@ export function PostPreviewDialog({
               )}
               <p className="text-xs text-muted-foreground">Bot が 1️⃣2️⃣3️⃣ を付けます（Bot の分・複数選択は集計対象外）・ 翌朝 06:00 の正解発表の直前に締切</p>
               <div className="flex flex-col gap-1 border-l-2 pl-3">
-                <span className="text-xs text-muted-foreground">翌朝の返信（正解・解説）</span>
+                <span className="text-xs text-muted-foreground">翌朝の正解発表（この問題への返信・正解カードの画像付き。翌日の問題より先に送る）</span>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildDiscordAnswerText(q)}</p>
               </div>
             </>

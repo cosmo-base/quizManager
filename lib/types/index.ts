@@ -160,6 +160,10 @@ export interface Question {
   categoryId: string
   /** "auto" は未設定（実APIモードで難易度が付いていない問題） */
   difficulty: Difficulty
+  /** 前振り（問題文の前の背景。実APIモード） */
+  lead?: string
+  /** 画像（正解カード）用の短い解説（実APIモード） */
+  cardSummary?: string
   platform: Platform
   timeliness: Exclude<Timeliness, "auto">
   status: QuestionStatus
