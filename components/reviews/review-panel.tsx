@@ -39,7 +39,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-type NoteKind = "return" | "reject" | null
+type NoteKind = "return" | "reject" | "manual" | null
 
 export function ReviewPanel({ q }: { q: Question }) {
   const { state, actions } = useQuiz()
@@ -55,6 +55,8 @@ export function ReviewPanel({ q }: { q: Question }) {
   const isLive = state.settings.dataMode === "live"
   const aiReady = !!state.liveStatus.ai?.configured
   const unverified = q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed"
+  // 実APIモード：未検証（検証NG ではない）なら、理由を書いて人の判断で承認できる
+  const manualApprovable = isLive && q.factCheck.status === "pending"
 
   const reverify = async () => {
     setVerifying(true)
@@ -69,6 +71,7 @@ export function ReviewPanel({ q }: { q: Question }) {
     if (!note.trim()) return
     if (noteKind === "return") actions.returnQuestion(q.id, note.trim())
     if (noteKind === "reject") actions.rejectQuestion(q.id, note.trim())
+    if (noteKind === "manual") actions.approve(q.id, "", note.trim())
     setNoteKind(null)
     setNote("")
   }
@@ -105,11 +108,17 @@ export function ReviewPanel({ q }: { q: Question }) {
             <Pencil />
             修正
           </Button>
+          {manualApprovable && (
+            <Button size="sm" variant="outline" onClick={() => setNoteKind("manual")} disabled={!canApprove || q.status !== "review"}>
+              <Check />
+              ファクトチェックなしで承認
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => actions.approve(q.id)}
             disabled={!canApprove || unverified || q.status !== "review"}
-            title={unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
+            title={unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : manualApprovable ? "未検証です。再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
           >
             <Check />
             承認
@@ -295,23 +304,32 @@ export function ReviewPanel({ q }: { q: Question }) {
       <Dialog open={noteKind !== null} onOpenChange={(o) => !o && setNoteKind(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{noteKind === "reject" ? "不採用にする" : "差し戻す"}</DialogTitle>
+            <DialogTitle>{noteKind === "reject" ? "不採用にする" : noteKind === "manual" ? "ファクトチェックなしで承認する" : "差し戻す"}</DialogTitle>
             <DialogDescription>
               {noteKind === "reject"
                 ? "この問題は採用されず、割り当て済みの枠は空き枠に戻ります。"
-                : "作成者に修正を依頼します。理由は承認履歴に残ります。"}
+                : noteKind === "manual"
+                  ? "AI のファクトチェックをせずに、あなたの判断で承認します。どう確かめたかを書いてください（バージョン履歴のメモに「人の判断で承認」として残ります）。"
+                  : "作成者に修正を依頼します。理由は承認履歴に残ります。"}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="review-note">理由</Label>
-            <Textarea id="review-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+            <Label htmlFor="review-note">{noteKind === "manual" ? "承認の理由" : "理由"}</Label>
+            <Textarea
+              id="review-note"
+              value={note}
+              maxLength={noteKind === "manual" ? 200 : undefined}
+              placeholder={noteKind === "manual" ? "例：JAXA の公式ページで数値を確認した" : undefined}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteKind(null)}>
               キャンセル
             </Button>
             <Button variant={noteKind === "reject" ? "destructive" : "default"} onClick={submitNote} disabled={!note.trim()}>
-              {noteKind === "reject" ? "不採用にする" : "差し戻す"}
+              {noteKind === "reject" ? "不採用にする" : noteKind === "manual" ? "承認する" : "差し戻す"}
             </Button>
           </DialogFooter>
         </DialogContent>
