@@ -9,7 +9,7 @@ import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import { buildDiscordAnswerText, buildDiscordQuestionText, DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
-import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, X_COMMUNITY_TEXT, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX } from "@/lib/x-poll"
+import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, overlongXText, X_COMMUNITY_TEXT, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX, X_TEXT_MAX } from "@/lib/x-poll"
 import type { Platform, Question } from "@/lib/types"
 
 export function PostPreviewDialog({
@@ -47,6 +47,11 @@ export function PostPreviewDialog({
                     {o}
                   </li>
                 ))}
+                {overlongXText(q) !== null && (
+                  <li role="alert" className="text-xs text-destructive">
+                    本文が {overlongXText(q)} / {X_TEXT_MAX}（全角は 2 と数えます）で長すぎます。投票が付かないため、06:00 には前振りを外して投稿されます。問題を修正して短くしてください
+                  </li>
+                )}
                 {overlongXChoices(q).length > 0 && (
                   <li role="alert" className="text-xs text-destructive">
                     選択肢 {overlongXChoices(q).join("・")} が {X_POLL_OPTION_MAX} 文字（番号込み）を超えています。このままでは投稿できません

@@ -13,7 +13,7 @@ import type { ChoiceLabel, Difficulty, Platform, Question, QuestionStatus } from
 import { cn } from "@/lib/utils"
 import { DISCORD_EMOJI } from "@/lib/discord-format"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
-import { X_POLL_OPTION_MAX, xPollOption } from "@/lib/x-poll"
+import { X_POLL_OPTION_MAX, X_TEXT_MAX, xPollOption, xQuestionLength } from "@/lib/x-poll"
 import { CARD_SUMMARY_MAX, LEAD_MAX, questionError, TOPIC_MAX } from "@/lib/question-validate"
 import { SimilarWarning } from "@/components/questions/live-suggestion"
 
@@ -55,11 +55,15 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
   const [saving, setSaving] = useState(false)
 
   const optionLength = (i: number) => xPollOption(LABELS[i], choices[i]).length
+  // X は本文が長いと長文の投稿になり、投票が付かない
+  const xLength = xQuestionLength({ text: text.trim(), lead: lead.trim() })
+  const xOver = platform === "x" && xLength > X_TEXT_MAX
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const invalid = questionError({ text, choices, answer, explanation, lead, cardSummary }, platform)
     if (invalid) return setError(invalid)
+    if (xOver && status === "approved") return setError(`X の本文が長すぎます（${xLength} / ${X_TEXT_MAX}）。長いと投票が付かないので、前振りか問題文を短くしてから承認してください`)
     setSaving(true)
     const saved = await actions.saveLiveQuestion({
       id: q?.id,
@@ -139,6 +143,12 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lq-text">問題文</Label>
             <Textarea id="lq-text" value={text} onChange={(e) => setText(e.target.value)} rows={3} />
+            {platform === "x" && (
+              <span className={cn("text-xs tabular-nums", xOver ? "font-medium text-destructive" : "text-muted-foreground")} aria-live="polite">
+                X の本文（前振り＋問題文＋決まり文句）{xLength} / {X_TEXT_MAX}（全角は 2 と数えます）
+                {xOver && "。長すぎると投票が付かないので、前振りか問題文を短くしてください（このままでは承認できません）"}
+              </span>
+            )}
             <SimilarWarning text={text} answerText={choices[LABELS.indexOf(answer)]} exclude={q?.id} />
           </div>
           <fieldset className="flex flex-col gap-2">
