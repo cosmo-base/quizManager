@@ -136,8 +136,10 @@ export function PostTable({
                     <span className="truncate text-sm">{q?.text ?? "—"}</span>
                     {j.error && (
                       <span className="flex items-center gap-1 text-xs text-destructive">
-                        <AlertTriangle className="size-3 shrink-0" aria-hidden />
-                        <span className="truncate">{j.error}</span>
+                        <AlertTriangle className="mt-0.5 size-3 shrink-0 self-start" aria-hidden />
+                        <span className="line-clamp-3 break-all" title={j.error}>
+                          {j.error}
+                        </span>
                       </span>
                     )}
                   </div>

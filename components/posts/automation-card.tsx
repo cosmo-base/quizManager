@@ -1,17 +1,16 @@
 "use client"
 
 // 実APIモード：毎朝の自動投稿の状態（GAS の getAutomationStatus）
+import { RESULT_LABEL, RESULT_TONE } from "@/lib/automation-labels"
 import Link from "next/link"
 import { Bot } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "@/components/shared/status-badge"
-import type { Tone } from "@/lib/constants"
 import { formatDate, formatDateTime } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
 import type { GasAutomationStatus, GasPlan, GasPlatformAutomation, GasPostState } from "@/lib/services/gas-contract"
 import { cn } from "@/lib/utils"
 
-const RESULT_TONE: Record<string, Tone> = { done: "success", ok: "success", skip: "muted", error: "danger", notified: "warning" }
 const SOURCE_LABEL: Record<string, string> = { cron: "06:00", fallback: "06:10 予備", trigger: "定時", manual: "手動" }
 const TASK_LABEL: Record<string, string> = {
   dailyPost: "投稿",
@@ -154,9 +153,9 @@ export function AutomationCard({ status }: { status: GasAutomationStatus | null 
                         <span className="tabular-nums text-muted-foreground">{l.at ? formatDateTime(l.at) : "—"}</span>
                         <span>{SOURCE_LABEL[l.source] ?? l.source}</span>
                         <span className="text-muted-foreground">{TASK_LABEL[l.task] ?? l.task}・{l.step}</span>
-                        <StatusBadge tone={RESULT_TONE[l.result] ?? "neutral"} label={l.result} />
+                        <StatusBadge tone={RESULT_TONE[l.result] ?? "neutral"} label={RESULT_LABEL[l.result] ?? l.result} />
                       </span>
-                      {l.message && <span className="break-all text-muted-foreground">{l.message}</span>}
+                      {l.message && <span className={cn("break-all", l.result === "error" ? "text-destructive" : "text-muted-foreground")}>{l.message}</span>}
                     </li>
                   ))}
                 </ul>

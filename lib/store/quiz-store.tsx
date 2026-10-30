@@ -163,6 +163,12 @@ export interface GenerationRequest {
   options: GenerationOptions
 }
 
+/** 時間がかかるため「実行中…」を出す操作（callBackend の operation 名） */
+const LONG_OPERATIONS = new Set([
+  "問題の保存", "AI問題生成", "カード画像の作成", "問題の取り込み", "ファクトチェック", "再検証", "別問題を生成",
+  "投稿", "正解発表", "結果の取得", "結果の手入力", "手動投稿の記録", "公開状況の確認", "AI定性分析", "出題日の変更", "自動投稿の切り替え",
+])
+
 function useQuizStoreValue() {
   // GAS とログインの設定があるビルド（本番）は実APIモードで開き、ログイン画面を出す
   const [state, setState] = useState<AppState>(() => {
@@ -209,13 +215,28 @@ function useQuizStoreValue() {
     return true
   }, [])
 
+  /** 操作できないときに、黙って終わらず理由を出す（false を返すので return cannot(…) と書ける） */
+  const cannot = (operation: string, reason: string): false => {
+    toast.error(`${operation}できません`, { description: reason })
+    return false
+  }
+
   const callBackend = useCallback(async <T,>(operation: string, fn: (b: QuizBackend) => Promise<T>): Promise<T | null> => {
+    // 時間のかかる操作は、少し待っても終わらなければ「実行中…」を出す（終わったら消して、結果を出す）
+    let progress: string | number | undefined
+    const timer = LONG_OPERATIONS.has(operation) ? setTimeout(() => (progress = toast.loading(`${operation}を実行中…`, { description: "終わるまでこの画面のままお待ちください" })), 700) : undefined
     try {
       return await fn(getBackend(stateRef.current.settings.dataMode))
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
       if (e instanceof NotConnectedError) toast.error(e.message, { description: e.hint })
-      else toast.error(`${operation}に失敗しました`, { description: e instanceof Error ? e.message : String(e) })
+      // 成否不明：送ったかどうか分からない。失敗とは分けて知らせ、自動ではやり直さない
+      else if (e instanceof GasError && e.outcome === "unknown") toast.warning(`${operation}：成否不明`, { description: `${msg}。結果を確かめてから、必要ならやり直してください（二重にならないよう、自動ではやり直しません）`, duration: 15000 })
+      else toast.error(`${operation}に失敗しました`, { description: msg, duration: 12000 })
       return null
+    } finally {
+      if (timer) clearTimeout(timer)
+      if (progress !== undefined) toast.dismiss(progress)
     }
   }, [])
 
@@ -362,7 +383,7 @@ function useQuizStoreValue() {
   const liveVerify = async (id: string) => {
     if (!guard("ファクトチェック", ["edit", "approve"], { live: true })) return
     const q = stateRef.current.live.questions.find((x) => x.id === id)
-    if (!q) return
+    if (!q) return void cannot("ファクトチェック", "対象が見つかりません。画面を再読み込みしてからやり直してください")
     const res = await callBackend("ファクトチェック", (b) => b.verifyQuestion(q))
     if (!res) return
     await refreshLive()
@@ -407,7 +428,7 @@ function useQuizStoreValue() {
   const assignLiveDate = async (id: string, date: string | null) => {
     if (!guard(date ? "出題日の割り当て" : "予備に戻す", "approve", { live: true })) return false
     const q = stateRef.current.live.questions.find((x) => x.id === id)
-    if (!q) return false
+    if (!q) return cannot("出題日の変更", "対象が見つかりません。画面を再読み込みしてからやり直してください")
     const saved = await callBackend("出題日の変更", (b) =>
       b.saveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: date, status: "approved", note: date ? `出題計画から ${date} に割り当て` : "出題計画から予備に戻す" }),
     )
@@ -421,7 +442,7 @@ function useQuizStoreValue() {
   const setLiveQuestionStatus = (id: string, status: SaveQuestionInput["status"], note: string, manualApproval?: string) => {
     if (!guard("状態の変更", "approve", { live: true })) return false
     const q = stateRef.current.live.questions.find((x) => x.id === id)
-    if (!q) return false
+    if (!q) return cannot("状態の変更", "対象が見つかりません。画面を再読み込みしてからやり直してください")
     // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる。未検証は理由を書けば人の判断で承認できる）
     if (status === "approved" && (q.factCheck.status === "failed" || (q.factCheck.status === "pending" && !manualApproval?.trim()))) {
       toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" })
@@ -442,7 +463,7 @@ function useQuizStoreValue() {
     if (s.settings.emergencyStop) return void toast.error("緊急停止中のため投稿できません")
     const job = s.live.postJobs.find((j) => j.id === jobId)
     const q = s.live.questions.find((x) => x.id === job?.questionId)
-    if (!job || !q) return
+    if (!job || !q) return void cannot("今すぐ投稿", "対象が見つかりません。画面を再読み込みしてからやり直してください")
     if (job.status === "unknown") {
       return void toast.error("公開状況が不明です", { description: `二重投稿を防ぐため、${PLATFORM_LABEL[job.platform]} 上で投稿の有無を確認してください。自動では再投稿しません` })
     }
@@ -459,7 +480,8 @@ function useQuizStoreValue() {
     const s = stateRef.current
     const job = s.live.postJobs.find((j) => j.id === jobId)
     const q = s.live.questions.find((x) => x.id === job?.questionId)
-    if (!job || !q || job.status !== "posted") return
+    if (!job || !q) return void cannot("正解発表", "対象が見つかりません。画面を再読み込みしてからやり直してください")
+    if (job.status !== "posted") return void cannot("正解発表", "まだ投稿されていない（または投稿に失敗した）ため、この操作はできません")
     const res = await callBackend("正解発表", (b) => b.revealAnswer(job, q).then(() => true))
     await refreshLive()
     const dry = job.platform === "discord" ? s.liveStatus.discordDryRun : s.liveStatus.dryRun
@@ -471,7 +493,8 @@ function useQuizStoreValue() {
     const s = stateRef.current
     const job = s.live.postJobs.find((j) => j.id === jobId)
     const q = s.live.questions.find((x) => x.id === job?.questionId)
-    if (!job || !q || job.status !== "posted") return
+    if (!job || !q) return void cannot("結果の取得", "対象が見つかりません。画面を再読み込みしてからやり直してください")
+    if (job.status !== "posted") return void cannot("結果の取得", "まだ投稿されていない（または投稿に失敗した）ため、この操作はできません")
     const snap = await callBackend("結果の取得", (b) => b.fetchResponses(job, q))
     await refreshLive()
     if (snap) toast.success(`回答結果を取得しました（${snap.finalized ? "確定" : "暫定"}）`, { description: `回答数 ${snap.responses ?? "未取得"}` })
@@ -481,7 +504,8 @@ function useQuizStoreValue() {
   const liveEnterResults = async (jobId: string, counts: Record<ChoiceLabel, number>) => {
     if (!guard("結果の手入力", "post", { live: true })) return
     const job = stateRef.current.live.postJobs.find((j) => j.id === jobId)
-    if (!job || job.status !== "posted") return
+    if (!job) return void cannot("結果の手入力", "対象が見つかりません。画面を再読み込みしてからやり直してください")
+    if (job.status !== "posted") return void cannot("結果の手入力", "まだ投稿されていない（または投稿に失敗した）ため、この操作はできません")
     const res = await callBackend("結果の手入力", (b) => b.recordResponses(job, counts))
     await refreshLive()
     if (res) toast.success(`${job.date} の結果を記録しました`, { description: `回答数 ${res.responses}・正解 ${res.correct}` })
@@ -490,7 +514,7 @@ function useQuizStoreValue() {
   const liveCheckPostStatus = async (jobId: string) => {
     if (!guard("公開状況の確認", "post", { live: true })) return
     const job = stateRef.current.live.postJobs.find((j) => j.id === jobId)
-    if (!job) return
+    if (!job) return void cannot("公開状況の確認", "対象が見つかりません。画面を再読み込みしてからやり直してください")
     const res = await callBackend("公開状況の確認", (b) => b.checkPostStatus(job))
     if (!res) return
     await refreshLive()
