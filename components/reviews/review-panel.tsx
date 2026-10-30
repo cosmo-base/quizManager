@@ -21,6 +21,7 @@ import { can } from "@/lib/validation"
 import { cn } from "@/lib/utils"
 import { LiveReturnNotice, SimilarWarning } from "@/components/questions/live-suggestion"
 import { questionHref } from "@/lib/routes"
+import { overlongXText, X_TEXT_MAX } from "@/lib/x-poll"
 
 const QUALITY_LABEL: Record<keyof QualityScore, string> = {
   interest: "興味喚起",
@@ -57,6 +58,8 @@ export function ReviewPanel({ q }: { q: Question }) {
   const unverified = q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed"
   // 実APIモード：未検証（検証NG ではない）なら、理由を書いて人の判断で承認できる
   const manualApprovable = isLive && q.factCheck.status === "pending"
+  // X は本文が長いと投票が付かないので承認できない
+  const xOver = isLive && q.platform === "x" ? overlongXText(q) : null
 
   const reverify = async () => {
     setVerifying(true)
@@ -109,7 +112,7 @@ export function ReviewPanel({ q }: { q: Question }) {
             修正
           </Button>
           {manualApprovable && (
-            <Button size="sm" variant="outline" onClick={() => setNoteKind("manual")} disabled={!canApprove || q.status !== "review"}>
+            <Button size="sm" variant="outline" onClick={() => setNoteKind("manual")} disabled={!canApprove || q.status !== "review" || xOver !== null}>
               <Check />
               ファクトチェックなしで承認
             </Button>
@@ -117,8 +120,8 @@ export function ReviewPanel({ q }: { q: Question }) {
           <Button
             size="sm"
             onClick={() => actions.approve(q.id)}
-            disabled={!canApprove || unverified || q.status !== "review"}
-            title={unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : manualApprovable ? "未検証です。再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
+            disabled={!canApprove || unverified || q.status !== "review" || xOver !== null}
+            title={xOver !== null ? `X の本文が長すぎます（${xOver} / ${X_TEXT_MAX}）。「修正」で短くしてください` : unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : manualApprovable ? "未検証です。再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
           >
             <Check />
             承認
@@ -129,6 +132,11 @@ export function ReviewPanel({ q }: { q: Question }) {
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-2 xl:divide-x xl:overflow-hidden">
         <div className="flex flex-col gap-5 p-4 xl:overflow-y-auto">
           {isLive && <LiveReturnNotice q={q} />}
+          {xOver !== null && (
+            <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              X の本文が長すぎます（{xOver} / {X_TEXT_MAX}、全角は 2 と数えます）。長いと投票が付かないので、「修正」で前振りか問題文を短くしてから承認してください。
+            </p>
+          )}
           <Block title="問題">
             <p className="text-base leading-relaxed text-pretty">{q.text}</p>
             {isLive && <SimilarWarning text={q.text} answerText={q.choices.find((c) => c.label === q.answer)?.text} exclude={q.id} className="mt-2" />}

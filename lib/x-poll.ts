@@ -28,7 +28,7 @@ export interface XPoll {
   duration_minutes?: number
 }
 
-/** 投票の選択肢 1 つ分（例："2. 木星"） */
+/** 投票の選択肢 1 つ分（例："②木星"） */
 export function xPollOption(label: ChoiceLabel, text: string): string {
   return `${CIRCLED_NUMBER[label]}${text.trim()}`
 }
@@ -45,6 +45,31 @@ export function overlongXChoices(q: Pick<Question, "choices">): ChoiceLabel[] {
 
 export function buildXQuestionText(q: Pick<Question, "text" | "lead">): string {
   return ["【今日の宇宙クイズ】", (q.lead ?? "").trim() + q.text.trim(), "", "下の選択肢から、ぜひ答えを予想してみてください！", X_HASHTAG].join("\n")
+}
+
+/** X の本文の上限（重み付き）。超えると長文の投稿になり、投票が付かない。GAS の X_TEXT_MAX と同じ */
+export const X_TEXT_MAX = 280
+
+/** X の重み付き文字数（全角などは 2、半角英数などは 1）。GAS の XClient.weightedLength と同じ */
+export function xWeightedLength(text: string): number {
+  let n = 0
+  for (const ch of text.normalize("NFC")) {
+    const cp = ch.codePointAt(0) ?? 0
+    const light = cp <= 0x10ff || (cp >= 0x2000 && cp <= 0x200d) || (cp >= 0x2010 && cp <= 0x201f) || (cp >= 0x2032 && cp <= 0x2037)
+    n += light ? 1 : 2
+  }
+  return n
+}
+
+/** X の問題の本文の重み付きの長さ */
+export function xQuestionLength(q: Pick<Question, "text" | "lead">): number {
+  return xWeightedLength(buildXQuestionText(q))
+}
+
+/** X の問題の本文が上限を超えるなら、その長さ（超えなければ null） */
+export function overlongXText(q: Pick<Question, "text" | "lead">): number | null {
+  const n = xQuestionLength(q)
+  return n > X_TEXT_MAX ? n : null
 }
 
 /** 翌朝の正解（前日の問題の引用リポスト） */

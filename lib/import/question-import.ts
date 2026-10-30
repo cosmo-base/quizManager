@@ -5,6 +5,7 @@ import type { ImportQuestionInput } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty, Platform } from "@/lib/types"
 import { CARD_SUMMARY_MAX, CHOICE_LABELS, LEAD_MAX, normalizeQuestionText, questionError, TOPIC_MAX, URL_PATTERN } from "@/lib/question-validate"
 import { findSimilar, SIMILAR_WARN } from "@/lib/similarity"
+import { overlongXText, X_TEXT_MAX } from "@/lib/x-poll"
 
 export type ImportPlatform = Exclude<Platform, "instagram"> | "both"
 
@@ -232,6 +233,9 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
 
 /** 登録は止めない注意：正本によく似た問題がある（同じ問題文は rowError で止める） */
 export function rowWarning(row: ImportRow, existing: { id: string; text: string; answer: ChoiceLabel; choices: { label: ChoiceLabel; text: string }[] }[]): string | null {
+  // X は本文が長いと投票が付かない（下書きでは登録できる。承認の前に短くする）
+  const over = row.platform && targetPlatforms(row.platform).includes("x") ? overlongXText({ text: row.text.trim(), lead: row.lead.trim() }) : null
+  if (over) return `X の本文が長すぎます（${over} / ${X_TEXT_MAX}）。承認の前に前振りか問題文を短くしてください`
   const hits = findSimilar(row.text, existing, { min: SIMILAR_WARN, limit: 3 })
   if (!hits.length) return null
   const answerText = row.answer ? normalizeQuestionText(row.choices[CHOICE_LABELS.indexOf(row.answer)] ?? "") : ""

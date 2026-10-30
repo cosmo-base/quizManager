@@ -2,7 +2,7 @@
 
 // 実APIモード：実際に投稿される本文を出す（X は本文＋①②③の投票＋コミュニティーへの誘導の返信、Discord は問題の本文。カード画像は別に出す）。
 import { buildDiscordQuestionText } from "@/lib/discord-format"
-import { buildXPollOptions, buildXQuestionText, overlongXChoices, X_COMMUNITY_TEXT, X_POLL_OPTION_MAX } from "@/lib/x-poll"
+import { buildXPollOptions, buildXQuestionText, overlongXChoices, overlongXText, X_COMMUNITY_TEXT, X_POLL_OPTION_MAX, X_TEXT_MAX } from "@/lib/x-poll"
 import type { Question } from "@/lib/types"
 
 export function PostTextPreview({ q }: { q: Question }) {
@@ -10,6 +10,7 @@ export function PostTextPreview({ q }: { q: Question }) {
     return <p className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed whitespace-pre-wrap">{buildDiscordQuestionText(q)}</p>
   }
   const tooLong = overlongXChoices(q)
+  const textOver = overlongXText(q)
   return (
     <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
       <p className="text-sm leading-relaxed whitespace-pre-wrap">{buildXQuestionText(q)}</p>
@@ -20,6 +21,11 @@ export function PostTextPreview({ q }: { q: Question }) {
           </li>
         ))}
       </ul>
+      {textOver !== null && (
+        <p role="alert" className="text-xs text-destructive">
+          本文が {textOver} / {X_TEXT_MAX}（全角は 2 と数えます）で長すぎます。このままでは投票が付かないので、前振りか問題文を短くしてください
+        </p>
+      )}
       {tooLong.length > 0 && (
         <p role="alert" className="text-xs text-destructive">
           選択肢 {tooLong.join("・")} が {X_POLL_OPTION_MAX} 文字（番号込み）を超えています

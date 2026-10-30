@@ -55,6 +55,7 @@ import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
 import { scheduledJobsFor, toPostJob, toQuestion, toResponseSnapshot, type LivePlan } from "@/lib/live/mappers"
 import { can, canSchedule, checkReuse, describeConflict, type Permission } from "@/lib/validation"
+import { overlongXText, X_TEXT_MAX } from "@/lib/x-poll"
 
 export interface AppData {
   questions: Question[]
@@ -424,6 +425,11 @@ function useQuizStoreValue() {
     // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる。未検証は理由を書けば人の判断で承認できる）
     if (status === "approved" && (q.factCheck.status === "failed" || (q.factCheck.status === "pending" && !manualApproval?.trim()))) {
       toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" })
+      return false
+    }
+    const over = status === "approved" && q.platform === "x" ? overlongXText(q) : null
+    if (over) {
+      toast.error("X の本文が長すぎるため承認できません", { description: `${over} / ${X_TEXT_MAX}。長いと投票が付かないので、「修正」で前振りか問題文を短くしてください` })
       return false
     }
     void saveLiveQuestion({ id, text: q.text, choices: q.choices, answer: q.answer, explanation: q.explanation, platform: q.platform, plannedDate: q.plannedDate, status, note, manualApproval: manualApproval?.trim() || undefined })
