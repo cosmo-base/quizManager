@@ -19,6 +19,7 @@ export type GasAction =
   | "generateQuestions"
   | "listInsights"
   | "recordManualPost"
+  | "recordResponses"
   | "importQuestions"
   | "getQuestionHistory"
   | "getMe"

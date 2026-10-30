@@ -27,6 +27,7 @@ export const liveBackend: QuizBackend = {
   fetchResponses: (job) => callGas("fetchResponses", target(job), "回答結果の取得"),
   syncToSheets: notConnected("Sheets同期", "実APIモードでは GAS が直接 Sheets に記録するため不要です"),
   runInsight: (req) => callGas<AIInsight>("runInsight", { scope: req.scope, targetLabel: req.targetLabel, questionIds: req.questionIds }, "AI定性分析"),
+  recordResponses: (job, counts) => callGas<{ responses: number; correct: number }>("recordResponses", { ...target(job), counts }, "結果の手入力"),
   recordManualPost: (job, url) =>
     callGas<{ externalId: string; url: string }>("recordManualPost", { ...target(job), questionId: job.questionId, version: job.questionVersion, url }, "手動投稿の記録"),
   listInsights: () => callGas<AIInsight[]>("listInsights", {}, "分析履歴の取得"),

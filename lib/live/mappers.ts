@@ -98,7 +98,8 @@ export interface LivePlan extends GasPlan {
 export function scheduledJobsFor(questions: GasQuestion[], jobs: PostJob[], defaultTime: string, platforms: Platform[] = ["x", "discord"], plans: LivePlan[] = []): PostJob[] {
   // 失敗した投稿も一覧に残っているので重ねない（再投稿はその行の「今すぐ投稿」から行う）
   const taken = new Set(jobs.map((j) => j.id))
-  // 21:00 に固定した日は、06:00 の自動投稿と同じく固定した版を並べる（出題日が入っているほかの承認済みは並べない）
+  // 21:00 に固定した日は、06:00 の自動投稿と同じく固定した版を並べる（出題日が入っているほかの承認済みは並べない）。
+  // 固定の後に同じ問題がその日のまま承認し直されていれば、06:00 はその最新版を出すので、最新版を並べる
   const locked: PostJob[] = plans
     .filter((p) => platforms.includes(p.platform) && !taken.has(`${p.date}:${p.platform}`))
     .map((p) => {
@@ -108,8 +109,9 @@ export function scheduledJobsFor(questions: GasQuestion[], jobs: PostJob[], defa
         : q.status === "rejected" || q.status === "archived"
           ? `21:00 に固定した ${p.questionId} はその後 ${q.status === "rejected" ? "却下" : "アーカイブ"}されたため、06:00 には投稿されません`
           : null
+      const reapproved = q && q.version !== p.version && q.status === "approved" && q.plannedDate === p.date && q.platform === p.platform
       return {
-        ...scheduledJob(`${p.date}:${p.platform}`, p.questionId, p.version, p.platform, p.date, defaultTime),
+        ...scheduledJob(`${p.date}:${p.platform}`, p.questionId, reapproved ? q.version : p.version, p.platform, p.date, defaultTime),
         error,
         plan: { source: p.source === "spare" ? ("spare" as const) : ("approved" as const), plannedAt: p.plannedAt },
       }

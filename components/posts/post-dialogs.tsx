@@ -9,8 +9,8 @@ import { PlatformBadge } from "@/components/shared/platform-badge"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import { buildDiscordAnswerText, buildDiscordQuestionText, DISCORD_EMOJI, DISCORD_MESSAGE_MAX, overlongDiscordText } from "@/lib/discord-format"
-import { buildXAnswerText, buildXPollOptions, buildXQuestionText, overlongXChoices, overlongXText, X_COMMUNITY_TEXT, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX, X_TEXT_MAX } from "@/lib/x-poll"
-import type { Platform, Question } from "@/lib/types"
+import { buildXAnswerText, buildXPollOptions, buildXQuestionText, CIRCLED_NUMBER, overlongXChoices, overlongXText, X_COMMUNITY_TEXT, X_POLL_DURATION_MINUTES, X_POLL_OPTION_MAX, X_TEXT_MAX } from "@/lib/x-poll"
+import type { ChoiceLabel, Platform, Question } from "@/lib/types"
 
 export function PostPreviewDialog({
   q,
@@ -196,6 +196,73 @@ export function RecordUrlDialog({
             }}
           >
             記録する
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** 実APIモード：結果を手入力する（投票がなかった日や、返信などで答えてくれた分を数に入れたいとき） */
+export function EnterResultsDialog({
+  q,
+  initial,
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  q: Question | null
+  initial: Record<ChoiceLabel, number | null> | null
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onSubmit: (counts: Record<ChoiceLabel, number>) => void
+}) {
+  const labels: ChoiceLabel[] = ["A", "B", "C"]
+  const [counts, setCounts] = useState<Record<ChoiceLabel, string>>({
+    A: String(initial?.A ?? 0),
+    B: String(initial?.B ?? 0),
+    C: String(initial?.C ?? 0),
+  })
+  if (!q) return null
+  const valid = labels.every((l) => /^\d{1,6}$/.test(counts[l].trim()))
+  const total = valid ? labels.reduce((n, l) => n + Number(counts[l]), 0) : null
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>結果を手入力</DialogTitle>
+          <DialogDescription>
+            選択肢ごとの回答数を入れます。保存した数を確定の結果として記録し、KPI などに使います（あとで「結果を取得」しても上書きされません）。今の数が最初に入っています。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          {labels.map((l) => {
+            const text = q.choices.find((c) => c.label === l)?.text ?? ""
+            return (
+              <div key={l} className="grid grid-cols-[1fr_6rem] items-center gap-3">
+                <Label htmlFor={`er-${l}`} className="min-w-0 truncate font-normal">
+                  {CIRCLED_NUMBER[l]}
+                  {text}
+                  {l === q.answer && <span className="ml-1 text-xs text-success">（正解）</span>}
+                </Label>
+                <Input id={`er-${l}`} inputMode="numeric" value={counts[l]} onChange={(e) => setCounts((p) => ({ ...p, [l]: e.target.value }))} className="text-right tabular-nums" />
+              </div>
+            )
+          })}
+          <p className="text-right text-sm tabular-nums text-muted-foreground">{valid ? `合計 ${total}` : "0 以上の整数で入れてください"}</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            キャンセル
+          </Button>
+          <Button
+            disabled={!valid}
+            onClick={() => {
+              onSubmit({ A: Number(counts.A), B: Number(counts.B), C: Number(counts.C) })
+              onOpenChange(false)
+            }}
+          >
+            保存する
           </Button>
         </DialogFooter>
       </DialogContent>

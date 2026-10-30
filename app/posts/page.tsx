@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PostTable, type PostAction } from "@/components/posts/post-table"
 import { InstagramStock, ScheduleQueue } from "@/components/posts/side-panels"
 import { AutomationCard } from "@/components/posts/automation-card"
-import { PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/components/posts/post-dialogs"
+import { EnterResultsDialog, PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/components/posts/post-dialogs"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatTime } from "@/lib/format"
 import { useQuiz } from "@/lib/store/quiz-store"
@@ -36,6 +36,7 @@ type DialogState =
   | { kind: "reschedule"; job: PostJob }
   | { kind: "cancel"; job: PostJob }
   | { kind: "recordManual"; job: PostJob }
+  | { kind: "enterResults"; job: PostJob }
   | { kind: "recordIg"; questionId: string }
   | { kind: "confirmSend"; job: PostJob; action: "postNow" | "reveal" }
   | null
@@ -84,6 +85,7 @@ export default function PostsPage() {
       case "reschedule":
       case "cancel":
       case "recordManual":
+      case "enterResults":
         setDialog({ kind: action, job })
         break
       case "postNow":
@@ -303,6 +305,16 @@ export default function PostsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {dialog?.kind === "enterResults" && (
+        <EnterResultsDialog
+          key={dialog.job.id}
+          q={questionMap.get(dialog.job.questionId) ?? null}
+          initial={questionMap.get(dialog.job.questionId)?.responses.find((r) => r.postJobId === dialog.job.id)?.perChoice ?? null}
+          open
+          onOpenChange={(o) => !o && setDialog(null)}
+          onSubmit={(counts) => void actions.enterResults(dialog.job.id, counts)}
+        />
+      )}
       <RecordUrlDialog
         open={dialog?.kind === "recordManual" || dialog?.kind === "recordIg"}
         onOpenChange={(o) => !o && setDialog(null)}

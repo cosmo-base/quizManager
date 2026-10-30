@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/components/shared/page-header"
 import { useQuiz } from "@/lib/store/quiz-store"
-import { addDays, addMonths, DEMO_TODAY, formatDate, startOfWeek } from "@/lib/format"
+import { addDays, addMonths, DEMO_TODAY, formatDate, startOfMonth, startOfWeek } from "@/lib/format"
 import { ListView, MonthView, WeekView } from "@/components/calendar/calendar-views"
 import { DaySheet } from "@/components/calendar/day-sheet"
 import { LiveCalendar } from "@/components/calendar/live-calendar"
@@ -24,7 +24,7 @@ export default function CalendarPage() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const [tplOpen, setTplOpen] = useState(false)
 
-  const step = (dir: 1 | -1) => setAnchor((a) => (view === "week" ? addDays(a, 7 * dir) : addMonths(a, dir)))
+  const step = (dir: 1 | -1) => setAnchor((a) => (view === "week" ? addDays(a, 7 * dir) : addMonths(startOfMonth(a), dir)))
   const title =
     view === "week" ? `${formatDate(startOfWeek(anchor))}〜${formatDate(addDays(startOfWeek(anchor), 6))}` : `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`
 

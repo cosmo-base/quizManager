@@ -477,6 +477,16 @@ function useQuizStoreValue() {
     if (snap) toast.success(`回答結果を取得しました（${snap.finalized ? "確定" : "暫定"}）`, { description: `回答数 ${snap.responses ?? "未取得"}` })
   }
 
+  /** 結果を手入力する（確定の結果として記録） */
+  const liveEnterResults = async (jobId: string, counts: Record<ChoiceLabel, number>) => {
+    if (!guard("結果の手入力", "post", { live: true })) return
+    const job = stateRef.current.live.postJobs.find((j) => j.id === jobId)
+    if (!job || job.status !== "posted") return
+    const res = await callBackend("結果の手入力", (b) => b.recordResponses(job, counts))
+    await refreshLive()
+    if (res) toast.success(`${job.date} の結果を記録しました`, { description: `回答数 ${res.responses}・正解 ${res.correct}` })
+  }
+
   const liveCheckPostStatus = async (jobId: string) => {
     if (!guard("公開状況の確認", "post", { live: true })) return
     const job = stateRef.current.live.postJobs.find((j) => j.id === jobId)
@@ -1711,6 +1721,7 @@ function useQuizStoreValue() {
     saveLiveQuestion,
     importLiveQuestions,
     loadLiveHistory,
+    enterResults: liveEnterResults,
     renderLiveCard,
     setLiveAutomation,
     liveGenerate,

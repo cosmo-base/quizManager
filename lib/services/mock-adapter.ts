@@ -122,6 +122,7 @@ export const mockBackend: QuizBackend = {
   importQuestions: () => Promise.reject(new Error("デモモードでは正本に登録しません")),
   listInsights: () => Promise.resolve([]),
   recordManualPost: () => Promise.reject(new Error("デモモードでは手動投稿を正本に記録しません")),
+  recordResponses: () => Promise.reject(new Error("デモモードでは結果を正本に記録しません")),
   getMe: () => Promise.reject(new Error("デモモードではログインを使いません")),
   requestRole: () => Promise.reject(new Error("デモモードでは権限を申請できません")),
   listUsers: () => Promise.resolve([]),
