@@ -1,6 +1,7 @@
 "use client"
 
 // 実APIモードのホーム：今日・明日の出題、要対応、自動投稿の実行記録（正本の Sheets と GAS の自動投稿の状態から）。
+import { RESULT_LABEL, RESULT_TONE } from "@/lib/automation-labels"
 import Link from "next/link"
 import { AlertTriangle, ArrowRight, CheckCircle2, OctagonAlert } from "lucide-react"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -189,7 +190,6 @@ export function LiveAlertsPanel() {
   )
 }
 
-const RESULT_TONE: Record<string, Tone> = { done: "success", ok: "success", skip: "muted", error: "danger", notified: "warning", start: "info" }
 const TASK_LABEL: Record<string, string> = { dailyPost: "投稿", generate: "AI 自動生成", precheck: "点検", heartbeat: "ハートビート", reminder: "18:00 確認", confirm: "21:00 確定", setting: "設定" }
 
 export function LiveActivityPanel() {
@@ -212,9 +212,9 @@ export function LiveActivityPanel() {
                   <span className="text-muted-foreground">
                     {TASK_LABEL[l.task] ?? l.task}・{l.step}
                   </span>
-                  <StatusBadge tone={RESULT_TONE[l.result] ?? "neutral"} label={l.result} />
+                  <StatusBadge tone={RESULT_TONE[l.result] ?? "neutral"} label={RESULT_LABEL[l.result] ?? l.result} />
                 </span>
-                {l.message && <span className="break-all text-muted-foreground">{l.message}</span>}
+                {l.message && <span className={cn("break-all", l.result === "error" ? "text-destructive" : "text-muted-foreground")}>{l.message}</span>}
               </li>
             ))}
           </ul>

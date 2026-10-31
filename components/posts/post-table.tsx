@@ -28,6 +28,7 @@ export type PostAction =
   | "fetch"
   | "manual"
   | "recordManual"
+  | "enterResults"
 
 /**
  * 実APIモードで出す操作。予約時刻は 06:00 固定で、取り消しは出題計画（予備に戻す）で行うため出さない。
@@ -35,6 +36,7 @@ export type PostAction =
  */
 export function liveActions(j: PostJob): PostAction[] {
   const base = availableActions(j).filter((a) => a !== "reschedule" && a !== "cancel" && a !== "manual" && a !== "recordManual")
+  if (j.status === "posted") return [...base, "enterResults"]
   return j.status === "scheduled" || j.status === "failed" || j.status === "unknown" ? [...base, "recordManual"] : base
 }
 
@@ -69,6 +71,7 @@ const ACTION_LABEL: Record<PostAction, string> = {
   fetch: "結果を取得",
   manual: "手動対応へ切替",
   recordManual: "手動投稿を記録",
+  enterResults: "結果を手入力",
 }
 
 export function PostTable({
@@ -133,8 +136,10 @@ export function PostTable({
                     <span className="truncate text-sm">{q?.text ?? "—"}</span>
                     {j.error && (
                       <span className="flex items-center gap-1 text-xs text-destructive">
-                        <AlertTriangle className="size-3 shrink-0" aria-hidden />
-                        <span className="truncate">{j.error}</span>
+                        <AlertTriangle className="mt-0.5 size-3 shrink-0 self-start" aria-hidden />
+                        <span className="line-clamp-3 break-all" title={j.error}>
+                          {j.error}
+                        </span>
                       </span>
                     )}
                   </div>

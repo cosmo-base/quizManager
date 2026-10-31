@@ -1,5 +1,5 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
-import type { Role } from "@/lib/types"
+import type { ChoiceLabel, Role } from "@/lib/types"
 import type { GasAutomationStatus, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
@@ -29,6 +29,8 @@ export interface QuizBackend {
   runInsight(req: InsightRequest): Promise<Pick<AIInsight, "facts" | "hypotheses" | "improvements" | "verification" | "cautions"> & Partial<AIInsight>>
   /** 手動で投稿したものを URL で記録する（実APIモードのみ） */
   recordManualPost(job: PostJob, url: string): Promise<{ externalId: string; url: string }>
+  /** 結果を手入力して確定の結果として記録する */
+  recordResponses(job: PostJob, counts: Record<ChoiceLabel, number>): Promise<{ responses: number; correct: number }>
   /** 過去の分析（新しい順）。実APIモードのみ */
   listInsights(): Promise<AIInsight[]>
   testConnection(key: Integration["key"]): Promise<Integration["status"]>

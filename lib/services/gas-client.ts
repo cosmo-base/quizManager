@@ -38,11 +38,17 @@ export async function callGas<T>(action: GasAction, payload: unknown, operation:
     })
   } catch {
     // 送信後に切れた可能性があり、GAS 側で処理されたかは分からない
-    throw new GasError("unknown", "GAS との通信が途中で失敗しました（処理されたかは不明です）")
+    throw new GasError("unknown", "GAS との通信が途中で切れました。ネットワークを確かめてください（GAS で処理されたかは分かりません）")
   }
-  if (!res.ok) throw new GasError("unknown", `GAS が HTTP ${res.status} を返しました`)
+  if (!res.ok) throw new GasError("unknown", `GAS が正しく応答しませんでした（HTTP ${res.status}）。少し待ってからやり直してください。続くときは GAS のデプロイを確認してください`)
 
-  const body = (await res.json()) as GasResponse<T>
+  let body: GasResponse<T>
+  try {
+    body = (await res.json()) as GasResponse<T>
+  } catch {
+    // GAS のエラー画面やログイン画面（HTML）が返ってきたとき
+    throw new GasError("unknown", "GAS から想定外の応答が返りました。GAS を新しいバージョンでデプロイしたか、デプロイの URL が変わっていないか確認してください（GAS で処理されたかは分かりません）")
+  }
   if (!body.ok) throw new GasError(body.outcome, body.error, body.reason)
   return body.data
 }

@@ -84,10 +84,10 @@ export function LiveCalendar() {
     <>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" aria-label="前の月" onClick={() => setAnchor((a) => addMonths(a, -1))}>
+          <Button variant="outline" size="icon" aria-label="前の月" onClick={() => setAnchor((a) => addMonths(startOfMonth(a), -1))}>
             <ChevronLeft className="size-4" aria-hidden />
           </Button>
-          <Button variant="outline" size="icon" aria-label="次の月" onClick={() => setAnchor((a) => addMonths(a, 1))}>
+          <Button variant="outline" size="icon" aria-label="次の月" onClick={() => setAnchor((a) => addMonths(startOfMonth(a), 1))}>
             <ChevronRight className="size-4" aria-hidden />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setAnchor(today)}>
