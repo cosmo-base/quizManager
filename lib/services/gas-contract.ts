@@ -97,6 +97,8 @@ export interface GasConfigSummary {
   notifyEmail: boolean
   supabaseHeartbeat: boolean
   spareMinStock: number
+  /** 明日から何日分が承認済みで埋まっていれば、予備が少なくても知らせず AI 生成もしないか（古い GAS では無い） */
+  spareCoverDays?: number
   /** カード画像のテンプレート（QUIZ_CARD_TEMPLATE_ID）。古い GAS では無い */
   quizCards?: boolean
 }
@@ -283,6 +285,8 @@ export interface GasPlatformAutomation {
   todayPost: GasPostState | null
   yesterdayAnswer: GasPostState | null
   spareCount: number
+  /** 明日から続けて何日先まで承認済みで埋まっているか（古い GAS では無い） */
+  coveredDays?: number
 }
 export interface GasAutomationStatus {
   enabled: boolean
@@ -297,6 +301,10 @@ export interface GasAutomationStatus {
   yesterdayAnswer: GasPostState | null
   spareCount: number
   spareMin: number
+  /** X の、明日から承認済みで埋まっている日数（古い GAS では無い） */
+  coveredDays?: number
+  /** この日数以上埋まっていれば、予備が少なくても不足として扱わない（SPARE_COVER_DAYS） */
+  coverDays?: number
   /** Discord の Bot が設定済みなら Discord の分（未設定・古い GAS では null / 無し） */
   discord?: GasPlatformAutomation | null
   /** 運営用チャンネルの Webhook（DISCORD_OPS_WEBHOOK_URL）が設定済みか */

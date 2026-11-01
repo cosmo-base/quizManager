@@ -443,9 +443,9 @@ function useQuizStoreValue() {
     if (!guard("状態の変更", "approve", { live: true })) return false
     const q = stateRef.current.live.questions.find((x) => x.id === id)
     if (!q) return cannot("状態の変更", "対象が見つかりません。画面を再読み込みしてからやり直してください")
-    // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる。未検証は理由を書けば人の判断で承認できる）
-    if (status === "approved" && (q.factCheck.status === "failed" || (q.factCheck.status === "pending" && !manualApproval?.trim()))) {
-      toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "修正して再検証してください" : "再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" })
+    // GAS でも確かめるが、先に画面で止めて理由を出す（要確認は承認できる。未検証・検証NG は理由を書けば人の判断で承認できる）
+    if (status === "approved" && (q.factCheck.status === "failed" || q.factCheck.status === "pending") && !manualApproval?.trim()) {
+      toast.error(q.factCheck.status === "failed" ? "検証NGの問題は承認できません" : "未検証の問題は承認できません", { description: q.factCheck.status === "failed" ? "直して再検証するか、指摘が誤りなら「人の判断で承認」から理由を書いて承認してください" : "再検証するか、「人の判断で承認」から理由を書いて承認してください" })
       return false
     }
     const over = status === "approved" && q.platform === "x" ? overlongXText(q) : null
