@@ -52,12 +52,12 @@ export function ReviewPanel({ q }: { q: Question }) {
 
   const canApprove = can(state.role, "approve")
   const canEdit = can(state.role, "edit")
-  // 未検証・検証NG は承認できない（本番も同じ。GAS でも確かめる）。要確認は懸念点を読んだうえで承認できる
+  // 未検証・検証NG はそのままでは承認できない（GAS でも確かめる）。要確認は懸念点を読んだうえで承認できる
   const isLive = state.settings.dataMode === "live"
   const aiReady = !!state.liveStatus.ai?.configured
   const unverified = q.factCheck.status === "pending" || q.factCheck.status === "running" || q.factCheck.status === "failed"
-  // 実APIモード：未検証（検証NG ではない）なら、理由を書いて人の判断で承認できる
-  const manualApprovable = isLive && q.factCheck.status === "pending"
+  // 実APIモード：未検証・検証NG でも、理由を書けば人の判断で承認できる（検証NG は AI の指摘が誤りのとき）
+  const manualApprovable = isLive && (q.factCheck.status === "pending" || q.factCheck.status === "failed")
   // X は本文が長いと投票が付かないので承認できない
   const xOver = isLive && q.platform === "x" ? overlongXText(q) : null
 
@@ -114,14 +114,14 @@ export function ReviewPanel({ q }: { q: Question }) {
           {manualApprovable && (
             <Button size="sm" variant="outline" onClick={() => setNoteKind("manual")} disabled={!canApprove || q.status !== "review" || xOver !== null}>
               <Check />
-              ファクトチェックなしで承認
+              人の判断で承認
             </Button>
           )}
           <Button
             size="sm"
             onClick={() => actions.approve(q.id)}
             disabled={!canApprove || unverified || q.status !== "review" || xOver !== null}
-            title={xOver !== null ? `X の本文が長すぎます（${xOver} / ${X_TEXT_MAX}）。「修正」で短くしてください` : unverified ? (q.factCheck.status === "failed" ? "検証NGの問題は承認できません。修正して再検証してください" : manualApprovable ? "未検証です。再検証するか、「ファクトチェックなしで承認」から理由を書いて承認してください" : "未検証の問題は承認できません。先に再検証してください") : undefined}
+            title={xOver !== null ? `X の本文が長すぎます（${xOver} / ${X_TEXT_MAX}）。「修正」で短くしてください` : unverified ? (manualApprovable ? (q.factCheck.status === "failed" ? "検証NG です。直して再検証するか、指摘が誤りなら「人の判断で承認」から理由を書いて承認してください" : "未検証です。再検証するか、「人の判断で承認」から理由を書いて承認してください") : "未検証の問題は承認できません。先に再検証してください") : undefined}
           >
             <Check />
             承認
@@ -312,12 +312,14 @@ export function ReviewPanel({ q }: { q: Question }) {
       <Dialog open={noteKind !== null} onOpenChange={(o) => !o && setNoteKind(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{noteKind === "reject" ? "不採用にする" : noteKind === "manual" ? "ファクトチェックなしで承認する" : "差し戻す"}</DialogTitle>
+            <DialogTitle>{noteKind === "reject" ? "不採用にする" : noteKind === "manual" ? (q.factCheck.status === "failed" ? "検証NG のまま人の判断で承認する" : "ファクトチェックなしで承認する") : "差し戻す"}</DialogTitle>
             <DialogDescription>
               {noteKind === "reject"
                 ? "この問題は採用されず、割り当て済みの枠は空き枠に戻ります。"
                 : noteKind === "manual"
-                  ? "AI のファクトチェックをせずに、あなたの判断で承認します。どう確かめたかを書いてください（バージョン履歴のメモに「人の判断で承認」として残ります）。"
+                  ? q.factCheck.status === "failed"
+                    ? "AI は「検証NG」と判定しています。指摘を読み、AI の誤りだと確かめた場合だけ承認してください。どう確かめたかを書いてください（バージョン履歴のメモに「人の判断で承認（検証NG を確認済み）」として残ります）。"
+                    : "AI のファクトチェックをせずに、あなたの判断で承認します。どう確かめたかを書いてください（バージョン履歴のメモに「人の判断で承認」として残ります）。"
                   : "作成者に修正を依頼します。理由は承認履歴に残ります。"}
             </DialogDescription>
           </DialogHeader>

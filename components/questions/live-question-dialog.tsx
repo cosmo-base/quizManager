@@ -200,10 +200,10 @@ export function LiveQuestionDialog({ q, open, onOpenChange }: { q?: Question; op
           {status === "approved" && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lq-manual">
-                人の判断で承認する理由（ファクトチェックがまだのときだけ使われます）
+                人の判断で承認する理由（ファクトチェックがまだ・検証NG のときだけ使われます）
               </Label>
               <Input id="lq-manual" value={manualApproval} maxLength={200} onChange={(e) => setManualApproval(e.target.value)} placeholder="例：JAXA の公式ページで数値を確認した" />
-              <span className="text-xs text-muted-foreground">検証NG の問題は、理由があっても承認できません。理由はバージョン履歴のメモに残ります</span>
+              <span className="text-xs text-muted-foreground">検証NG のときは、AI の指摘が誤りだと確かめた場合だけ書いてください。理由はバージョン履歴のメモに残ります</span>
             </div>
           )}
           {q && (

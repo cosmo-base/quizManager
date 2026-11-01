@@ -1,6 +1,7 @@
 "use client"
 
 // 実APIモードのホーム：今日・明日の出題、要対応、自動投稿の実行記録（正本の Sheets と GAS の自動投稿の状態から）。
+import { spareShort } from "@/lib/spare"
 import { RESULT_LABEL, RESULT_TONE } from "@/lib/automation-labels"
 import Link from "next/link"
 import { AlertTriangle, ArrowRight, CheckCircle2, OctagonAlert } from "lucide-react"
@@ -33,6 +34,7 @@ function usePlatformAutomation(): Partial<Record<LivePlatform, GasPlatformAutoma
     todayPost: a.todayPost,
     yesterdayAnswer: a.yesterdayAnswer,
     spareCount: a.spareCount,
+    coveredDays: a.coveredDays,
   }
   return a.discord ? { x, discord: a.discord } : { x }
 }
@@ -148,7 +150,7 @@ export function useLiveNotices(): LiveNotice[] {
     .slice(0, 3)
     .forEach((l, i) => notices.push({ key: `log-${i}`, tone: "danger", text: `${l.at ? formatDateTime(l.at) : ""} 自動処理のエラー：${l.message}`, href: "/posts" }))
   if (auto) {
-    const spareLow = [{ p: "X", n: auto.spareCount }, ...(auto.discord ? [{ p: "Discord", n: auto.discord.spareCount }] : [])].filter((x) => x.n < auto.spareMin)
+    const spareLow = [{ p: "X", n: auto.spareCount, c: auto.coveredDays }, ...(auto.discord ? [{ p: "Discord", n: auto.discord.spareCount, c: auto.discord.coveredDays }] : [])].filter((x) => spareShort(x.n, auto.spareMin, x.c, auto.coverDays))
     if (spareLow.length) notices.push({ key: "spare", tone: "warning", text: `予備問題が最低数（${auto.spareMin} 問）を下回っています：${spareLow.map((x) => `${x.p} ${x.n} 問`).join("・")}`, href: "/generate" })
   }
   if (ai?.configured && ai.monthCostJpy >= ai.budgetJpy * 0.8) notices.push({ key: "ai", tone: ai.monthCostJpy >= ai.budgetJpy ? "danger" : "warning", text: `AI の今月の使用量が上限の ${Math.round((ai.monthCostJpy / ai.budgetJpy) * 100)}% です`, href: "/generate" })

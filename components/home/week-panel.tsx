@@ -1,5 +1,6 @@
 "use client"
 
+import { spareShort } from "@/lib/spare"
 import Link from "next/link"
 import { CheckCircle2, CircleDashed, CircleX, Clock, HelpCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -99,7 +100,9 @@ export function StockPanel() {
   const live = state.settings.dataMode === "live"
   // 実APIモードは X・Discord（Discord は Bot が設定済みのときだけ）。Instagram は休止中
   const platforms: Platform[] = live ? (state.liveStatus.discordConfigured ? ["x", "discord"] : ["x"]) : ["x", "discord", "instagram"]
-  const spareMin = state.liveStatus.automation?.spareMin
+  const auto = state.liveStatus.automation
+  const spareMin = auto?.spareMin
+  const coveredOf = (p: string) => (p === "discord" ? auto?.discord?.coveredDays : p === "x" ? auto?.coveredDays : undefined)
   const rows = platforms.map((p) => {
     const approved = data.questions.filter((q) => q.platform === p && q.status === "approved")
     const unassigned = approved.filter((q) => !q.plannedDate).length
@@ -127,7 +130,7 @@ export function StockPanel() {
               <div className="h-full bg-success" style={{ width: `${(r.approved / max) * 100}%` }} />
               <div className="h-full bg-warning" style={{ width: `${(r.review / max) * 100}%` }} />
             </div>
-            {live && spareMin !== undefined && r.unassigned < spareMin && <p className="text-xs text-warning">予備問題が最低数（{spareMin}問）を下回っています</p>}
+            {live && spareMin !== undefined && spareShort(r.unassigned, spareMin, coveredOf(r.p), auto?.coverDays) && <p className="text-xs text-warning">予備問題が最低数（{spareMin}問）を下回っています</p>}
             {r.p === "instagram" && r.approved < state.settings.posting.instagramMinStock && (
               <p className="text-xs text-warning">最低ストック数（{state.settings.posting.instagramMinStock}問）を下回っています</p>
             )}

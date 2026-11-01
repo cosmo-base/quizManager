@@ -1,6 +1,7 @@
 "use client"
 
 // 実APIモード：毎朝の自動投稿の状態（GAS の getAutomationStatus）
+import { spareShort } from "@/lib/spare"
 import { RESULT_LABEL, RESULT_TONE } from "@/lib/automation-labels"
 import Link from "next/link"
 import { Bot } from "lucide-react"
@@ -88,8 +89,13 @@ function PlatformSection({ name, s, status }: { name: string; s: GasPlatformAuto
         <PostLine label="前日分の正解発表" state={s.yesterdayAnswer} empty="まだありません" />
         <div className="flex flex-col gap-0.5">
           <dt className="text-xs text-muted-foreground">予備問題（承認済み・出題日なしの {name} の問題）</dt>
-          <dd className={cn("text-sm tabular-nums", s.spareCount < status.spareMin && "text-warning")}>
-            {s.spareCount} 問{s.spareCount < status.spareMin && `（最低 ${status.spareMin} 問。不足しています）`}
+          <dd className={cn("text-sm tabular-nums", spareShort(s.spareCount, status.spareMin, s.coveredDays, status.coverDays) && "text-warning")}>
+            {s.spareCount} 問
+            {spareShort(s.spareCount, status.spareMin, s.coveredDays, status.coverDays)
+              ? `（最低 ${status.spareMin} 問。不足しています）`
+              : s.spareCount < status.spareMin && s.coveredDays !== undefined
+                ? `（明日から ${s.coveredDays} 日分が承認済みのため、今は足りています）`
+                : ""}
           </dd>
         </div>
       </dl>
@@ -108,6 +114,7 @@ export function AutomationCard({ status }: { status: GasAutomationStatus | null 
         todayPost: status.todayPost,
         yesterdayAnswer: status.yesterdayAnswer,
         spareCount: status.spareCount,
+        coveredDays: status.coveredDays,
       }
     : null
   return (

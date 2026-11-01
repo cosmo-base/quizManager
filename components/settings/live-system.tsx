@@ -63,7 +63,10 @@ export function LiveSystemSettings() {
   ]
   const auto: Row[] = [
     { label: "毎朝の自動投稿", value: config.automationEnabled ? "稼働中" : "停止中", tone: config.automationEnabled ? "success" : "warning", keyName: "AUTOMATION_ENABLED", note: "ヘッダーの「自動投稿」から停止・再開できます" },
-    { label: "予備問題の最低数（媒体ごと）", value: `${config.spareMinStock} 問`, tone: "neutral", keyName: "SPARE_MIN_STOCK", note: "下回ると 21:00 にメールで知らせます" },
+    { label: "予備問題の最低数（媒体ごと）", value: `${config.spareMinStock} 問`, tone: "neutral", keyName: "SPARE_MIN_STOCK", note: "下回ると 21:00 に知らせ、毎朝の AI 生成で補います" },
+    ...(config.spareCoverDays === undefined
+      ? []
+      : [{ label: "先の日まで埋まっていれば予備は急がない", value: `${config.spareCoverDays} 日分`, tone: "neutral", keyName: "SPARE_COVER_DAYS", note: "明日からこの日数分が承認済みで埋まっているあいだは、予備が少なくても知らせず、AI 生成もしません" } satisfies Row]),
     { label: "運営用チャンネルへの通知", value: config.opsWebhook ? "設定済み" : "未設定（メールで代わり）", tone: config.opsWebhook ? "success" : "warning", keyName: "DISCORD_OPS_WEBHOOK_URL", note: "18:00 の確認依頼・権限の申請・AI 自動生成のお知らせ" },
     { label: "通知メール", value: config.notifyEmail ? "設定済み" : "未設定", tone: config.notifyEmail ? "success" : "warning", keyName: "NOTIFY_EMAIL", note: "投稿の失敗・点検の結果・予備の不足など" },
     { label: "Supabase のハートビート", value: config.supabaseHeartbeat ? "設定済み" : "未設定", tone: config.supabaseHeartbeat ? "success" : "warning", keyName: "SUPABASE_URL / SUPABASE_ANON_KEY", note: "06:00 の起動に使う Supabase が止まらないようにします（SUPABASE_URL が空なら、Discord の中継の URL から求めます）" },
