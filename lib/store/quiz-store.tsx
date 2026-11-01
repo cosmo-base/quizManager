@@ -166,7 +166,7 @@ export interface GenerationRequest {
 /** 時間がかかるため「実行中…」を出す操作（callBackend の operation 名） */
 const LONG_OPERATIONS = new Set([
   "問題の保存", "AI問題生成", "カード画像の作成", "問題の取り込み", "ファクトチェック", "再検証", "別問題を生成",
-  "投稿", "正解発表", "結果の取得", "結果の手入力", "手動投稿の記録", "公開状況の確認", "AI定性分析", "出題日の変更", "自動投稿の切り替え",
+  "投稿", "正解発表", "結果の取得", "結果の手入力", "KPI シートへの反映", "手動投稿の記録", "公開状況の確認", "AI定性分析", "出題日の変更", "自動投稿の切り替え",
 ])
 
 function useQuizStoreValue() {
@@ -1375,6 +1375,13 @@ function useQuizStoreValue() {
   }
 
   const syncSheets = async (jobIds?: string[]) => {
+    if (!isDemo()) {
+      // 実APIモード：投稿・結果のたびに GAS が自動で反映している。取りこぼしの補いと、はじめの一度のために全部書き直す
+      if (!guard("KPI シートへの反映", "post", { live: true })) return
+      const res = await callBackend("KPI シートへの反映", (b) => b.syncToSheets([]))
+      if (res) toast.success(`KPI シートに ${res.rows} 行を反映しました`, { description: "ダッシュボードには、シートの公開 CSV が更新されたあとに出ます" })
+      return
+    }
     if (!guard("Sheets同期", ["post", "settings"])) return
     const targets = stateRef.current.demo.postJobs.filter((j) => j.responseStatus === "finalized" && (jobIds ? jobIds.includes(j.id) : ["unsynced", "failed", "needs_check"].includes(j.syncStatus)))
     if (!targets.length) {
