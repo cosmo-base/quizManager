@@ -63,6 +63,9 @@ export function LiveSystemSettings() {
   ]
   const auto: Row[] = [
     { label: "毎朝の自動投稿", value: config.automationEnabled ? "稼働中" : "停止中", tone: config.automationEnabled ? "success" : "warning", keyName: "AUTOMATION_ENABLED", note: "ヘッダーの「自動投稿」から停止・再開できます" },
+    ...(config.kpiSheet === undefined
+      ? []
+      : [{ label: "KPI ダッシュボードの元データ", value: config.kpiSheet ? "反映する" : "未設定", tone: config.kpiSheet ? "success" : "muted", keyName: "KPI_SHEET_ID", note: "スプレッドシート「宇宙クイズ」の KPI タブに、投稿・結果を 1 投稿 1 行で書きます（投稿・結果のたびと毎朝 06:00）" } satisfies Row]),
     { label: "予備問題の最低数（媒体ごと）", value: `${config.spareMinStock} 問`, tone: "neutral", keyName: "SPARE_MIN_STOCK", note: "下回ると 21:00 に知らせ、毎朝の AI 生成で補います" },
     ...(config.spareCoverDays === undefined
       ? []

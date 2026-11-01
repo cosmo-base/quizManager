@@ -20,6 +20,7 @@ export type GasAction =
   | "listInsights"
   | "recordManualPost"
   | "recordResponses"
+  | "syncKpiSheet"
   | "importQuestions"
   | "getQuestionHistory"
   | "getMe"
@@ -99,6 +100,8 @@ export interface GasConfigSummary {
   spareMinStock: number
   /** 明日から何日分が承認済みで埋まっていれば、予備が少なくても知らせず AI 生成もしないか（古い GAS では無い） */
   spareCoverDays?: number
+  /** KPI ダッシュボードの元データ（KPI_SHEET_ID）への反映が設定済みか（古い GAS では無い） */
+  kpiSheet?: boolean
   /** カード画像のテンプレート（QUIZ_CARD_TEMPLATE_ID）。古い GAS では無い */
   quizCards?: boolean
 }

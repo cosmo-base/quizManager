@@ -136,10 +136,18 @@ export default function PostsPage() {
         description={`X・Discordへの投稿予約と結果取得。原則 ${state.settings.posting.defaultTime}（日本時間）に投稿します。`}
         actions={
           isLive ? (
-            <Button variant="outline" onClick={() => actions.refreshLive()} disabled={loading}>
-              <RefreshCw className={loading ? "animate-spin" : undefined} />
-              正本から再読み込み
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {state.liveStatus.config?.kpiSheet && (
+                <Button variant="outline" onClick={sync} disabled={syncing || !canPost} title="投稿・結果のたびに自動で反映しています。取りこぼしがあるときに使います">
+                  <RefreshCw className={syncing ? "animate-spin" : undefined} />
+                  KPI シートに反映
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => actions.refreshLive()} disabled={loading}>
+                <RefreshCw className={loading ? "animate-spin" : undefined} />
+                正本から再読み込み
+              </Button>
+            </div>
           ) : (
             <Button variant="outline" onClick={sync} disabled={syncing || unsyncedCount === 0 || !canPost}>
               <RefreshCw className={syncing ? "animate-spin" : undefined} />

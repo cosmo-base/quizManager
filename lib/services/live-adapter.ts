@@ -25,7 +25,8 @@ export const liveBackend: QuizBackend = {
     await callGas("revealAnswer", target(job), "正解発表")
   },
   fetchResponses: (job) => callGas("fetchResponses", target(job), "回答結果の取得"),
-  syncToSheets: notConnected("Sheets同期", "実APIモードでは GAS が直接 Sheets に記録するため不要です"),
+  // 実APIモード：KPI ダッシュボードの元データ（スプレッドシート「宇宙クイズ」の KPI タブ）へ、新しい仕組みでの投稿をまとめて反映する
+  syncToSheets: () => callGas<{ rows: number }>("syncKpiSheet", {}, "KPI シートへの反映"),
   runInsight: (req) => callGas<AIInsight>("runInsight", { scope: req.scope, targetLabel: req.targetLabel, questionIds: req.questionIds }, "AI定性分析"),
   recordResponses: (job, counts) => callGas<{ responses: number; correct: number }>("recordResponses", { ...target(job), counts }, "結果の手入力"),
   recordManualPost: (job, url) =>
