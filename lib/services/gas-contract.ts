@@ -31,6 +31,8 @@ export type GasAction =
   | "syncToSheets"
   | "runInsight"
   | "renderQuizCard"
+  | "listPastQuestions"
+  | "importPastQuestions"
 
 export interface GasRequest<P = unknown> {
   action: GasAction
@@ -147,6 +149,21 @@ export interface GenerateQuestionsResult {
 }
 
 /** questions タブの最新版（保存のたびに版が 1 つ上がる） */
+/** 過去問（以前のスプレッドシート「宇宙クイズ」で出した問題。かぶりの確認用。ライブラリ・予備・KPI には混ぜない） */
+export interface GasPastQuestion {
+  /** 表示名（例：過去問 2026-03-04（12 行目）） */
+  id: string
+  date: string | null
+  text: string
+  choices: string[]
+  /** 正解の文字（分からなければ回答の欄のまま） */
+  answer: string
+  category: string
+  platforms: string[]
+  answers: number
+  correct: number
+}
+
 export interface GasQuestion {
   id: string
   version: number

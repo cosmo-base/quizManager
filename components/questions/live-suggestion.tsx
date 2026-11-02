@@ -2,11 +2,12 @@
 
 // 実APIモード：難易度・分類・題材が未設定の問題に、再検証で出た AI の案を出す。「反映」を押したときだけ新しい版として保存する
 // （中身は変わらないので、ファクトチェックの結果は引き継がれる）。
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
-import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
+import { useCategoryName, usePastQuestions, useQuiz } from "@/lib/store/quiz-store"
+import type { GasPastQuestion } from "@/lib/services/gas-contract"
 import type { Question } from "@/lib/types"
 import Link from "next/link"
 import { formatDateTime } from "@/lib/format"
@@ -83,10 +84,10 @@ export function LiveReturnNotice({ q }: { q: Question }) {
  * 問題文の近さだけだと「一番大きい／小さい惑星」のような別の問題も出るので、正解も同じなら「同じ問題かも」と強めに出す。
  */
 export function SimilarWarning({ text, answerText, exclude, className }: { text: string; answerText?: string; exclude?: string; className?: string }) {
-  const { data } = useQuiz()
-  const hits = text.trim().length >= 6 ? findSimilar(text, data.questions, { exclude, min: SIMILAR_WARN, limit: 3 }) : []
+  const candidates = useSimilarCandidates()
+  const hits = text.trim().length >= 6 ? findSimilar(text, candidates, { exclude, min: SIMILAR_WARN, limit: 3 }) : []
   if (hits.length === 0) return null
-  const sameAnswer = (h: (typeof hits)[number]) => !!answerText?.trim() && normalizeQuestionText(correctText(h.item)) === normalizeQuestionText(answerText)
+  const sameAnswer = (h: (typeof hits)[number]) => !!answerText?.trim() && normalizeQuestionText(h.item.answerText) === normalizeQuestionText(answerText)
   const strong = hits.some(sameAnswer)
   return (
     <p className={cn("text-xs", strong ? "text-destructive" : "text-warning", className)}>
@@ -94,14 +95,45 @@ export function SimilarWarning({ text, answerText, exclude, className }: { text:
       {hits.map((h, i) => (
         <span key={h.item.id}>
           {i > 0 && "、"}
-          <Link href={questionHref(h.item.id)} className="underline" target="_blank">
-            {h.item.id}
-          </Link>
+          {h.item.past ? (
+            <span className="underline decoration-dotted" title={`${h.item.text}\n正解：${h.item.answerText}`}>
+              {h.item.label}
+            </span>
+          ) : (
+            <Link href={questionHref(h.item.id)} className="underline" target="_blank">
+              {h.item.label}
+            </Link>
+          )}
           （近さ {Math.round(h.score * 100)}%{sameAnswer(h) ? "・正解も同じ" : ""}）
         </span>
       ))}
     </p>
   )
 }
+
+/** かぶりの確認に使う候補（問題ライブラリの問題と過去問） */
+export interface SimilarCandidate {
+  id: string
+  label: string
+  text: string
+  answerText: string
+  past: boolean
+}
+
+export function useSimilarCandidates(): SimilarCandidate[] {
+  const { data } = useQuiz()
+  const past = usePastQuestions()
+  return useMemo(() => similarCandidates(data.questions, past), [data.questions, past])
+}
+
+export function similarCandidates(questions: Question[], past: GasPastQuestion[]): SimilarCandidate[] {
+  return [
+    ...questions.map((q) => ({ id: q.id, label: q.id, text: q.text, answerText: correctText(q), past: false })),
+    ...past.map((p) => ({ id: p.id, label: pastLabel(p), text: p.text, answerText: p.answer, past: true })),
+  ]
+}
+
+/** 過去問の短い表示名（例：過去問 2026-03-04） */
+export const pastLabel = (p: GasPastQuestion) => `過去問 ${p.date ?? "日付なし"}`
 
 const correctText = (q: Question) => q.choices.find((c) => c.label === q.answer)?.text ?? ""

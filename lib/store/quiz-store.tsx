@@ -49,7 +49,7 @@ import {
 import { AI_MODELS, PIPELINE_STEPS, PLATFORM_LABEL, ROLE_LABEL } from "@/lib/constants"
 import { addDays, addMonths, dateRange, DEMO_TODAY, jstIso, jstToday, shortHash, weekday } from "@/lib/format"
 import { getBackend, NotConnectedError, type QuizBackend } from "@/lib/services"
-import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GasPlan, GenerateQuestionsInput, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "@/lib/services/gas-contract"
+import type { GasAiStatus, GasAutomationStatus, GasConfigSummary, GasMe, GasPastQuestion, GasPlan, GenerateQuestionsInput, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "@/lib/services/gas-contract"
 import { GasError } from "@/lib/services/gas-client"
 import { LIVE_AVAILABLE } from "@/lib/live/env"
 import { useGoogleAuth } from "@/lib/auth/google-auth"
@@ -92,6 +92,8 @@ export interface LiveStatus {
   loadedAt: string | null
   /** 毎朝の自動投稿の状態（null は未取得） */
   automation: GasAutomationStatus | null
+  /** 過去問（以前のスプレッドシートで出した問題。かぶりの確認用。null は未取得・古い GAS） */
+  pastQuestions: GasPastQuestion[] | null
 }
 
 interface AppState {
@@ -179,7 +181,7 @@ function useQuizStoreValue() {
       userName: live ? "" : DEMO_IDENTITY.userName,
       demo: demoData(),
       live: liveData(),
-      liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, me: null, config: null, authError: null, loading: false, loadedAt: null, automation: null },
+      liveStatus: { dryRun: null, discordDryRun: null, discordConfigured: false, ai: null, me: null, config: null, authError: null, loading: false, loadedAt: null, automation: null, pastQuestions: null },
     }
   })
   const stateRef = useRef(state)
@@ -241,6 +243,17 @@ function useQuizStoreValue() {
   }, [])
 
   // ---------------- 実APIモード（GAS・正本の Sheets） ----------------
+  /** 過去問を読む。古い GAS（未対応）や失敗のときは黙って空のままにする（かぶりの確認が少し弱くなるだけ） */
+  const loadPastQuestions = useCallback(async () => {
+    try {
+      const list = await getBackend("live").listPastQuestions()
+      if (!Array.isArray(list)) return
+      setState((prev) => produce(prev, (draft) => void (draft.liveStatus.pastQuestions = list)))
+    } catch {
+      /* 古い GAS など */
+    }
+  }, [])
+
   /** 問題・投稿の一覧と動作状態を GAS から読み直す */
   const refreshLive = useCallback(async () => {
     if (stateRef.current.settings.dataMode !== "live") return
@@ -307,7 +320,8 @@ function useQuizStoreValue() {
         draft.liveStatus.loadedAt = nowIso()
       }),
     )
-  }, [callBackend])
+    if (res) void loadPastQuestions()
+  }, [callBackend, loadPastQuestions])
 
   // ログインしたとき・実APIモードに切り替えたときに読み込む。ログアウト・失効したら権限を閲覧者に戻す
   useEffect(() => {
@@ -1698,6 +1712,15 @@ function useQuizStoreValue() {
     toast.success("デモデータを初期状態に戻しました")
   }
 
+  /** KPI シートの以前の行を過去問に取り込む（まだの行だけ） */
+  const importLivePastQuestions = async () => {
+    if (!guard("過去問の取り込み", "post", { live: true })) return
+    const res = await callBackend("過去問の取り込み", (b) => b.importPastQuestions())
+    if (!res) return
+    toast.success(res.added ? `過去問を ${res.added} 問取り込みました` : "新しく取り込む過去問はありませんでした")
+    await loadPastQuestions()
+  }
+
   const actions = {
     previewGeneration,
     startGeneration,
@@ -1761,6 +1784,8 @@ function useQuizStoreValue() {
     loadLiveUsers,
     setLiveUserRole,
     rejectLiveRoleRequest,
+    importLivePastQuestions,
+    loadPastQuestions,
   }
 
   return { state, data, backendMode: backend.mode, actions, can: (p: Permission) => can(state.role, p) }
@@ -1787,6 +1812,13 @@ export function useToday() {
   const { state } = useQuiz()
   return state.settings.dataMode === "demo" ? DEMO_TODAY : (state.liveStatus.automation?.today ?? jstToday())
 }
+
+/** 過去問（デモ・未取得は空） */
+export function usePastQuestions(): GasPastQuestion[] {
+  const { state } = useQuiz()
+  return (state.settings.dataMode === "live" && state.liveStatus.pastQuestions) || EMPTY_PAST
+}
+const EMPTY_PAST: GasPastQuestion[] = []
 
 export function useCategoryName() {
   const { data } = useQuiz()

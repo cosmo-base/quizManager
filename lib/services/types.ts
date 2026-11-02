@@ -1,6 +1,6 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
 import type { ChoiceLabel, Role } from "@/lib/types"
-import type { GasAutomationStatus, GasMe, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
+import type { GasAutomationStatus, GasMe, GasPastQuestion, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
   scope: AIInsight["scope"]
@@ -49,6 +49,10 @@ export interface QuizBackend {
   getQuestionHistory(questionId: string): Promise<GasQuestion[]>
   /** 問題カード・正解カードの画像（data URL） */
   renderQuizCard(questionId: string, kind: "question" | "answer"): Promise<{ dataUrl: string }>
+  /** 過去問の一覧（古い GAS では未対応で失敗する） */
+  listPastQuestions(): Promise<GasPastQuestion[]>
+  /** KPI シートの以前の行を過去問に取り込む（まだの行だけ） */
+  importPastQuestions(): Promise<{ added: number }>
   /** ログインした人と、その権限 */
   getMe(): Promise<GasMe>
   requestRole(role: Role, note: string): Promise<{ pendingRequest: GasRoleRequest }>

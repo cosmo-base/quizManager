@@ -37,6 +37,7 @@ import type { ImportQuestionsResult } from "@/lib/services/gas-contract"
 import type { Category, ChoiceLabel, Difficulty } from "@/lib/types"
 import { DIFFICULTY_LABEL } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+import { useSimilarCandidates } from "./live-suggestion"
 
 type Step = "file" | "map" | "review" | "done"
 
@@ -116,7 +117,8 @@ export function ImportQuestionsDialog({ open, onOpenChange }: { open: boolean; o
     [data.questions],
   )
   const errors = useMemo(() => new Map(rows.map((r) => [r.rowNo, rowError(r, existing, rows)])), [rows, existing])
-  const warnings = useMemo(() => new Map(rows.map((r) => [r.rowNo, rowWarning(r, data.questions)])), [rows, data.questions])
+  const candidates = useSimilarCandidates()
+  const warnings = useMemo(() => new Map(rows.map((r) => [r.rowNo, rowWarning(r, candidates)])), [rows, candidates])
   const ready = rows.filter((r) => r.include && !errors.get(r.rowNo))
   const readyCount = ready.reduce((n, r) => n + (r.platform ? targetPlatforms(r.platform).length : 0), 0)
   const errorCount = rows.filter((r) => r.include && errors.get(r.rowNo)).length
