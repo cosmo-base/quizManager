@@ -1,3 +1,4 @@
+import { compareSchedule } from "@/lib/schedule-order"
 import { addMonths } from "@/lib/format"
 import { QUESTION_DIFFICULTY_LABEL, FACTCHECK_STATUS, PLATFORM_LABEL, QUESTION_STATUS } from "@/lib/constants"
 import { latestJobFor } from "@/lib/validation"
@@ -137,15 +138,7 @@ export type SortKey = "schedule" | "id" | "date" | "responses" | "rate" | "updat
  * 同じ日・出題日なしの中は問題ID順
  */
 export function sortBySchedule(questions: Question[], today: string) {
-  const group = (q: Question) => (!q.plannedDate ? 1 : q.plannedDate >= today ? 0 : 2)
-  return [...questions].sort((a, b) => {
-    const ga = group(a)
-    const gb = group(b)
-    if (ga !== gb) return ga - gb
-    if (ga === 0 && a.plannedDate !== b.plannedDate) return a.plannedDate! < b.plannedDate! ? -1 : 1
-    if (ga === 2 && a.plannedDate !== b.plannedDate) return a.plannedDate! > b.plannedDate! ? -1 : 1
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
-  })
+  return [...questions].sort((a, b) => compareSchedule(a.plannedDate, b.plannedDate, today) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
 export function sortQuestions(questions: Question[], key: SortKey, dir: "asc" | "desc", today = "") {

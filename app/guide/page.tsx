@@ -167,6 +167,7 @@ export default function GuidePage() {
             </ul>
           </Section>
           <Section title="投稿管理でできること">
+            <p>一覧は問題ライブラリと同じく「今日 → 明日以降 → 昨日 → それより前」の順に並びます。</p>
             <Table
               head={["状態", "すること"]}
               rows={[

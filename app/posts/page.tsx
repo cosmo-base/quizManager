@@ -13,7 +13,8 @@ import { AutomationCard } from "@/components/posts/automation-card"
 import { EnterResultsDialog, PostPreviewDialog, RecordUrlDialog, RescheduleDialog } from "@/components/posts/post-dialogs"
 import { PLATFORM_LABEL } from "@/lib/constants"
 import { formatTime } from "@/lib/format"
-import { useQuiz } from "@/lib/store/quiz-store"
+import { useQuiz, useToday } from "@/lib/store/quiz-store"
+import { compareSchedule } from "@/lib/schedule-order"
 import type { PostJob, PostStatus } from "@/lib/types"
 import { can, liveScheduleIssues } from "@/lib/validation"
 
@@ -47,6 +48,7 @@ export default function PostsPage() {
   const [status, setStatus] = useState<StatusFilter>("all")
   const [dialog, setDialog] = useState<DialogState>(null)
   const [syncing, setSyncing] = useState(false)
+  const today = useToday()
 
   const canPost = can(state.role, "post")
   const isLive = state.settings.dataMode === "live"
@@ -63,8 +65,9 @@ export default function PostsPage() {
         .filter((j) => j.platform !== "instagram" && j.status !== "cancelled")
         .filter((j) => platform === "all" || j.platform === platform)
         .filter((j) => (status === "all" ? true : status === "attention" ? ATTENTION.includes(j.status) : j.status === status))
-        .sort((a, b) => b.date.localeCompare(a.date) || a.platform.localeCompare(b.platform)),
-    [data.postJobs, platform, status],
+        // 標準の並び：今日 → 先の日 → 昨日 → それより前（問題ライブラリと同じ）
+        .sort((a, b) => compareSchedule(a.date, b.date, today) || a.platform.localeCompare(b.platform)),
+    [data.postJobs, platform, status, today],
   )
 
   const scheduledIds = useMemo(
@@ -73,7 +76,7 @@ export default function PostsPage() {
   )
   const waiting = data.questions
     .filter((q) => q.platform !== "instagram" && q.status === "approved" && !scheduledIds.has(q.id))
-    .sort((a, b) => (a.plannedDate ?? "9999").localeCompare(b.plannedDate ?? "9999"))
+    .sort((a, b) => compareSchedule(a.plannedDate, b.plannedDate, today) || a.id.localeCompare(b.id))
   const igStock = data.questions.filter((q) => q.platform === "instagram" && q.status === "approved")
   const unsyncedCount = data.postJobs.filter(
     (j) => j.responseStatus === "finalized" && ["unsynced", "failed", "needs_check"].includes(j.syncStatus),
