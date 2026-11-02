@@ -13,7 +13,8 @@ import { formatDate, formatDateTime } from "@/lib/format"
 import { questionHref } from "@/lib/routes"
 import type { GasQuestion } from "@/lib/services/gas-contract"
 import { findSimilar, SIMILAR_WARN } from "@/lib/similarity"
-import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
+import { useCategoryName, usePastQuestions, useQuiz } from "@/lib/store/quiz-store"
+import { PastQuestionRow } from "./past-questions"
 import type { Question } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -153,6 +154,7 @@ function QuestionRow({ o, right }: { o: Question; right?: React.ReactNode }) {
 
 export function LiveRelatedTab({ q, questions }: { q: Question; questions: Question[] }) {
   const similar = findSimilar(q.text, questions, { exclude: q.id })
+  const past = findSimilar(q.text, usePastQuestions(), { limit: 5 })
   const sameTopic = q.topic ? questions.filter((o) => o.id !== q.id && o.topic === q.topic && !similar.some((h) => h.item.id === o.id)) : []
   return (
     <div className="flex flex-col gap-4">
@@ -175,6 +177,17 @@ export function LiveRelatedTab({ q, questions }: { q: Question; questions: Quest
           </ul>
         )}
         <p className="mt-3 text-xs text-muted-foreground">問題文の文字の並びの近さで探しています（{Math.round(SIMILAR_WARN * 100)}% 以上はよく似た問題）。意味が同じでも言い回しが大きく違うものは見つけられません。</p>
+      </Section>
+      <Section title={`問題文が似ている過去問（${past.length}）`}>
+        {past.length === 0 ? (
+          <Empty>似ている過去問は見つかりませんでした（以前のスプレッドシートで出した問題）</Empty>
+        ) : (
+          <ul className="flex flex-col divide-y">
+            {past.map((h) => (
+              <PastQuestionRow key={h.item.id} p={h.item} score={h.score} />
+            ))}
+          </ul>
+        )}
       </Section>
       <Section title={q.topic ? `同じ題材「${q.topic}」の問題（${sameTopic.length}）` : "同じ題材の問題"}>
         {!q.topic ? (

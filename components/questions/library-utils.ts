@@ -130,9 +130,26 @@ export function filterQuestions(
   })
 }
 
-export type SortKey = "id" | "date" | "responses" | "rate" | "updatedAt"
+export type SortKey = "schedule" | "id" | "date" | "responses" | "rate" | "updatedAt"
 
-export function sortQuestions(questions: Question[], key: SortKey, dir: "asc" | "desc") {
+/**
+ * 標準の並び：今日 → 明日 → …（先の日を近い順）→ 出題日なし（未出題）→ 昨日 → 一昨日 → …（過去を新しい順）
+ * 同じ日・出題日なしの中は問題ID順
+ */
+export function sortBySchedule(questions: Question[], today: string) {
+  const group = (q: Question) => (!q.plannedDate ? 1 : q.plannedDate >= today ? 0 : 2)
+  return [...questions].sort((a, b) => {
+    const ga = group(a)
+    const gb = group(b)
+    if (ga !== gb) return ga - gb
+    if (ga === 0 && a.plannedDate !== b.plannedDate) return a.plannedDate! < b.plannedDate! ? -1 : 1
+    if (ga === 2 && a.plannedDate !== b.plannedDate) return a.plannedDate! > b.plannedDate! ? -1 : 1
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+}
+
+export function sortQuestions(questions: Question[], key: SortKey, dir: "asc" | "desc", today = "") {
+  if (key === "schedule") return sortBySchedule(questions, today)
   const val = (q: Question): string | number => {
     switch (key) {
       case "id":

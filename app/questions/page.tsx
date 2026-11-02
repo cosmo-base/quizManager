@@ -12,6 +12,7 @@ import { EmptyState, LiveEmptyState } from "@/components/shared/states"
 import { LibraryFilterBar } from "@/components/questions/library-filters"
 import { LiveQuestionDialog } from "@/components/questions/live-question-dialog"
 import { ImportQuestionsDialog } from "@/components/questions/import-dialog"
+import { PastQuestionsButton } from "@/components/questions/past-questions"
 import { COLUMNS, LibraryCards, LibraryTable, type ColumnKey } from "@/components/questions/library-views"
 import {
   downloadCsv,
@@ -22,7 +23,7 @@ import {
   type LibraryFilters,
   type SortKey,
 } from "@/components/questions/library-utils"
-import { useCategoryName, useQuiz } from "@/lib/store/quiz-store"
+import { useCategoryName, useQuiz, useToday } from "@/lib/store/quiz-store"
 import { DEMO_TODAY } from "@/lib/format"
 
 const PAGE_SIZE = 20
@@ -35,7 +36,9 @@ export default function QuestionsPage() {
   const categoryName = useCategoryName()
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS)
   const [view, setView] = useState<"table" | "cards">("table")
-  const [sortKey, setSortKey] = useState<SortKey>("date")
+  const today = useToday()
+  // 標準は「今日 → 先の日 → 未出題 → 過去」。列の見出しを押すとその列で並べ替える
+  const [sortKey, setSortKey] = useState<SortKey>("schedule")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [page, setPage] = useState(1)
   const [visible, setVisible] = useState<Set<ColumnKey>>(
@@ -44,8 +47,8 @@ export default function QuestionsPage() {
 
   const rules = state.settings.rules
   const results = useMemo(
-    () => sortQuestions(filterQuestions(data.questions, filters, { postJobs: data.postJobs, rules, today: DEMO_TODAY }), sortKey, sortDir),
-    [data.questions, data.postJobs, filters, rules, sortKey, sortDir],
+    () => sortQuestions(filterQuestions(data.questions, filters, { postJobs: data.postJobs, rules, today: DEMO_TODAY }), sortKey, sortDir, today),
+    [data.questions, data.postJobs, filters, rules, sortKey, sortDir, today],
   )
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)
@@ -84,6 +87,7 @@ export default function QuestionsPage() {
         <FileSpreadsheet />
         Excel から登録
       </Button>
+      <PastQuestionsButton />
     </>
   )
 
@@ -153,6 +157,11 @@ export default function QuestionsPage() {
                     </fieldset>
                   </PopoverContent>
                 </Popover>
+              )}
+              {sortKey !== "schedule" && (
+                <Button variant="ghost" size="sm" onClick={() => setSortKey("schedule")} title="今日 → 先の日 → 未出題 → 過去 の順に戻す">
+                  標準の並びに戻す
+                </Button>
               )}
               <ToggleGroup
                 value={[view]}

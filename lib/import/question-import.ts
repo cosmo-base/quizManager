@@ -231,18 +231,18 @@ export function rowError(row: ImportRow, existing: Set<string>, others: ImportRo
   return null
 }
 
-/** 登録は止めない注意：正本によく似た問題がある（同じ問題文は rowError で止める） */
-export function rowWarning(row: ImportRow, existing: { id: string; text: string; answer: ChoiceLabel; choices: { label: ChoiceLabel; text: string }[] }[]): string | null {
+/** 登録は止めない注意：正本によく似た問題がある（同じ問題文は rowError で止める）。existing は問題ライブラリの問題と過去問（label・answerText 付き） */
+export function rowWarning(row: ImportRow, existing: { id: string; label: string; text: string; answerText: string }[]): string | null {
   // X は本文が長いと投票が付かない（下書きでは登録できる。承認の前に短くする）
   const over = row.platform && targetPlatforms(row.platform).includes("x") ? overlongXText({ text: row.text.trim(), lead: row.lead.trim() }) : null
   if (over) return `X の本文が長すぎます（${over} / ${X_TEXT_MAX}）。承認の前に前振りか問題文を短くしてください`
   const hits = findSimilar(row.text, existing, { min: SIMILAR_WARN, limit: 3 })
   if (!hits.length) return null
   const answerText = row.answer ? normalizeQuestionText(row.choices[CHOICE_LABELS.indexOf(row.answer)] ?? "") : ""
-  const same = hits.find((h) => answerText && normalizeQuestionText(h.item.choices.find((c) => c.label === h.item.answer)?.text ?? "") === answerText)
+  const same = hits.find((h) => answerText && normalizeQuestionText(h.item.answerText) === answerText)
   return same
-    ? `同じ問題の可能性があります：${same.item.id}（近さ ${Math.round(same.score * 100)}%・正解も同じ）`
-    : `問題文が近い問題があります：${hits[0].item.id}（近さ ${Math.round(hits[0].score * 100)}%）`
+    ? `同じ問題の可能性があります：${same.item.label}（近さ ${Math.round(same.score * 100)}%・正解も同じ）`
+    : `問題文が近い問題があります：${hits[0].item.label}（近さ ${Math.round(hits[0].score * 100)}%）`
 }
 
 /** 登録する問題（「両方」は X 用・Discord 用の 2 つ） */
