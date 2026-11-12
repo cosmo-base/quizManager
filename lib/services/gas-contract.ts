@@ -62,6 +62,16 @@ export interface GasMe {
   /** USER_ROLES で固定（画面では変えられない） */
   fixed: boolean
   pendingRequest: GasRoleRequest | null
+  /**
+   * FSIF のアクセス権限管理につないでいるとき（GAS の AccessLink.gs）。
+   * 利用の可否と権限はアクセス権限管理で決まるので、この画面では申請・変更しない。古い GAS・未接続なら無い
+   */
+  access?: GasAccessLink | null
+}
+
+export interface GasAccessLink {
+  /** アクセス権限管理の画面の URL */
+  url: string
 }
 
 /** listUsers：ALLOWED_EMAILS・USER_ROLES・これまでの記録に出てくる人 */

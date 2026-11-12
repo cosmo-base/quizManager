@@ -154,7 +154,7 @@ export function useLiveNotices(): LiveNotice[] {
     if (spareLow.length) notices.push({ key: "spare", tone: "warning", text: `予備問題が最低数（${auto.spareMin} 問）を下回っています：${spareLow.map((x) => `${x.p} ${x.n} 問`).join("・")}`, href: "/generate" })
   }
   if (ai?.configured && ai.monthCostJpy >= ai.budgetJpy * 0.8) notices.push({ key: "ai", tone: ai.monthCostJpy >= ai.budgetJpy ? "danger" : "warning", text: `AI の今月の使用量が上限の ${Math.round((ai.monthCostJpy / ai.budgetJpy) * 100)}% です`, href: "/generate" })
-  if (me?.pendingRequest) notices.push({ key: "role", tone: "warning", text: `${ROLE_LABEL[me.pendingRequest.role]}への権限の申請が承認待ちです`, href: "/settings?tab=users" })
+  if (me?.pendingRequest && !me.access) notices.push({ key: "role", tone: "warning", text: `${ROLE_LABEL[me.pendingRequest.role]}への権限の申請が承認待ちです`, href: "/settings?tab=users" })
   return notices
 }
 

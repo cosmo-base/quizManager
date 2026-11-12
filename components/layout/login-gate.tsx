@@ -1,7 +1,8 @@
 "use client"
 
 // 実APIモードのログイン画面。ログインするまで（または許可されていないアカウントのときは）画面全体をこれにする。
-// 本人確認は Google、利用の可否と権限は GAS（ALLOWED_EMAILS・USER_ROLES・管理者が付けた権限）が決める。
+// 本人確認は Google、利用の可否と権限は GAS（ALLOWED_EMAILS・USER_ROLES・管理者が付けた権限、
+// またはアクセス権限管理につないでいればそちら）が決める。
 import { LogOut, RefreshCw, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BrandMark } from "./sidebar-nav"
@@ -55,7 +56,9 @@ export function LoginGate() {
           </div>
         )}
 
-        <p className="text-xs leading-relaxed text-muted-foreground">ログイン後の権限（閲覧・編集・承認・管理）は管理者が設定します。必要な権限は、ログイン後に「設定 → ユーザー」から申請できます。</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          ログインできる人と権限（閲覧・編集・承認・管理）は管理者が設定します。FSIF のアクセス権限管理で管理している場合は、全権管理者に依頼してください。
+        </p>
       </div>
     </div>
   )

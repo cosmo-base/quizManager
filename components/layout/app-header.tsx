@@ -154,7 +154,7 @@ function UserMenu() {
                     </span>
                   )}
                 </DropdownMenuLabel>
-                {live && me && !me.fixed && me.role !== "admin" && (
+                {live && me && !me.fixed && !me.access && me.role !== "admin" && (
                   <DropdownMenuItem onClick={() => setRequesting(true)}>
                     <KeyRound aria-hidden />
                     権限を申請…
