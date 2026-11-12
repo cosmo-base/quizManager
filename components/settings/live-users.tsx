@@ -3,7 +3,7 @@
 // 実APIモード：ユーザーと権限（GAS の user_roles タブ）。
 // 管理者は申請の承認・却下と権限の変更ができる。ほかの人は自分の権限を確認し、申請できる。
 import { useCallback, useEffect, useState } from "react"
-import { Check, KeyRound, RefreshCw, X } from "lucide-react"
+import { Check, ExternalLink, KeyRound, RefreshCw, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SimpleSelect } from "@/components/shared/simple-select"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -43,6 +43,32 @@ export function LiveUsersPanel() {
   }
 
   const pending = (users ?? []).filter((u) => u.pendingRequest)
+  // アクセス権限管理につないでいるときは、利用の可否・権限はそちらで決まる（この画面では申請・変更しない）
+  const access = me?.access ?? null
+
+  if (access) {
+    return (
+      <SettingsCard title="ユーザーと権限" description={ROLE_SUMMARY}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">
+            あなたの権限：<strong>{me ? ROLE_LABEL[me.role] : "—"}</strong>
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            この画面を使える人と権限は、FSIF の「アクセス権限管理」で決まります（役割キー admin・editor・approver・viewer がそれぞれ管理者・編集者・承認者・閲覧者）。権限を変えたいときは、全権管理者に依頼してください。
+          </p>
+          <a
+            href={access.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            アクセス権限管理を開く
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        </div>
+      </SettingsCard>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
