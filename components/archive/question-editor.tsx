@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useQuiz } from "@/lib/store/quiz-store"
@@ -86,6 +86,8 @@ export function ArchiveQuestionEditor({
   const [saving, setSaving] = useState(false)
   // 正解を変えて保存したとき：訂正のお知らせの下書きに使う
   const [answerFix, setAnswerFix] = useState<{ before: string; after: string } | null>(null)
+  // 開いたときは見出し（問題ID）に移る。下の「閉じる」に移ると、画面が下までスクロールして始まるため
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     setDetail(null)
@@ -169,9 +171,11 @@ export function ArchiveQuestionEditor({
 
   return (
     <Dialog open={questionId !== null} onOpenChange={(o) => !o && !saving && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl" initialFocus={titleRef}>
         <DialogHeader>
-          <DialogTitle className="font-mono">{questionId}</DialogTitle>
+          <DialogTitle ref={titleRef} tabIndex={-1} className="font-mono outline-none">
+            {questionId}
+          </DialogTitle>
           <DialogDescription>
             {detail
               ? `出題日 ${detail.question.postedOn}・サイト公開 ${detail.question.publishFrom}・正答率 ${formatAccuracy(detail.question.displayAccuracy)}（${ARCHIVE_DIFFICULTY_LABEL[detail.question.difficulty]}、サイトの基本回答 ${detail.question.basicAnswers} 件）`
