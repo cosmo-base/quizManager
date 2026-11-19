@@ -76,6 +76,7 @@ export default function GuidePage() {
           <TabsTrigger value="create">問題を作る</TabsTrigger>
           <TabsTrigger value="review">確認・承認</TabsTrigger>
           <TabsTrigger value="post">出題日と投稿</TabsTrigger>
+          <TabsTrigger value="archive">過去問サイト</TabsTrigger>
           <TabsTrigger value="trouble">困ったとき</TabsTrigger>
           <TabsTrigger value="roles">権限と設定</TabsTrigger>
         </TabsList>
@@ -182,6 +183,60 @@ export default function GuidePage() {
           </Section>
         </TabsContent>
 
+        <TabsContent value="archive" className="flex flex-col gap-4">
+          <Section title="過去問サイトとは">
+            <p>
+              出題済みの問題を参加者が練習・テストできるサイト（cbquiz.archive.fsif.jp）です。データは過去問サイト用のスプレッドシート（Archive）にあり、この管理画面の正本とは別です。
+            </p>
+            <ul className="list-disc pl-5">
+              <li>毎朝 06:15 ごろ、出題した問題と SNS の回答数を Archive が自動で取り込みます。</li>
+              <li>サイトに出るのは出題日の翌日からです（SNS の回答中に正解が見られないようにするため）。</li>
+              <li>
+                出題前の問題は <A href="/questions">問題ライブラリ</A>、出題後にサイトの問題を直すときは <A href="/archive">過去問サイト</A> を使います。問題ライブラリで直しても、過去問サイトには届きません。
+              </li>
+              <li>見るのは誰でも、直す・報告の状態を変える・お知らせを出すのは承認者と管理者です。</li>
+            </ul>
+          </Section>
+          <Section title="問題を直す">
+            <Steps
+              items={[
+                <>
+                  <A href="/archive">過去問サイト</A> の「問題」で探します。見出し（問題ID・出題日・分野・正答率・状態・報告）を押すと並び替え、「詳しい条件」で難易度・期間・正答率・媒体などで絞り込めます。
+                </>,
+                "問題IDを押して開き、問題文・選択肢・正解・解説・参考文献・分野・公開状態を直します。",
+                "内容を変えたときは変更理由を書いて「新しい版として保存」を押します。保存するとすぐサイトに反映されます。",
+                "正解を変えたときは、続けて「訂正のお知らせを作る」で参加者に知らせます。",
+              ]}
+            />
+            <Table
+              head={["直したもの", "どうなるか"]}
+              rows={[
+                ["問題文・解説・参考文献", "新しい版を足します（古い版は残り、履歴で見られます）。正答率は、選べば数え直します。誤字の修正なら数え直さなくてかまいません"],
+                ["正解・選択肢", "新しい版を足し、正答率を必ず数え直します。新しい回答が 10 件たまるまでは、それまでの正答率・難易度を表示します"],
+                ["分野・公開状態だけ", "版は増えません。「停止」にするとサイトの一覧・出題から外れます"],
+                ["ほかの人が先に直していた", "保存されません。閉じて開き直してから、もう一度直します"],
+              ]}
+            />
+            <p>
+              選択肢がなくて止めている問題は、「詳しい条件 → 要確認の問題 → 選択肢が2つしかない」で探せます。選択肢を入れて公開にすれば、サイトに出ます。
+            </p>
+          </Section>
+          <Section title="誤り報告">
+            <Steps
+              items={[
+                "参加者がサイトで「誤りを報告」すると、「誤り報告」に未対応で届きます。問題の一覧の「報告」の列にも数が出ます。",
+                "問題IDを押して中身を確かめ、必要なら直します。",
+                "状態を「対応済み」か「対応しない」にします。報告した人はこの画面には出ません。",
+              ]}
+            />
+          </Section>
+          <Section title="お知らせ">
+            <p>
+              「お知らせ」で作ると、サイトのホームとお知らせの一覧に出ます。正解や問題を直したときは種類を「訂正」にして、問題ID・訂正前・訂正後を入れます。公開日時を空にすると保存した時点で公開し、終了日時を入れるとその時点で消えます。
+            </p>
+          </Section>
+        </TabsContent>
+
         <TabsContent value="trouble" className="flex flex-col gap-4">
           <Section title="エラーの見方">
             <ul className="list-disc pl-5">
@@ -215,6 +270,9 @@ export default function GuidePage() {
                 ["AI 生成が「呼び出しの上限」で止まる", "1 日の呼び出し回数（AI_DAILY_CALL_LIMIT）か月の予算（AI_MONTHLY_BUDGET_JPY）に達しています。翌日まで待つか、設定を見直します"],
                 ["ログインできない", "Google アカウントが ALLOWED_EMAILS に入っているか確認します。入れたばかりの人は閲覧者なので、設定の「ユーザー・権限」から権限を申請し、管理者が承認します"],
                 ["画面の内容が古い", "投稿管理の「正本から再読み込み」か、ブラウザの再読み込みをします"],
+                ["過去問サイトで「連携が未設定です」", <>GAS のスクリプトプロパティに <K>ARCHIVE_API_URL</K>（過去問サイトの GAS の URL）と <K>ARCHIVE_ADMIN_TOKEN</K> を入れ、新しいバージョンでデプロイします</>],
+                ["過去問サイトで「合言葉が一致しません」", <><K>ARCHIVE_ADMIN_TOKEN</K> を、過去問サイトの GAS のスクリプトプロパティ <K>ADMIN_TOKEN</K> と同じ値にします</>],
+                ["過去問サイトで直した内容がサイトに出ない", "保存できていればすぐ反映されます。サイト側はブラウザの再読み込みをして、公開状態が「公開」か、出題日の翌日を過ぎているかを確かめます"],
               ]}
             />
           </Section>

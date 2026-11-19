@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronDown, RefreshCw, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, RefreshCw, Search, X } from "lucide-react"
 import { useQuiz } from "@/lib/store/quiz-store"
 import { getBackend } from "@/lib/services"
 import type { ArchiveDifficulty, ArchiveQuestionSummary, ArchiveSaveNoticeInput } from "@/lib/services/gas-contract"
@@ -12,12 +12,15 @@ import {
   ARCHIVE_PLATFORM_LABEL,
   ARCHIVE_PLATFORMS,
   ARCHIVE_SORT_LABEL,
+  columnDirection,
   DEFAULT_ARCHIVE_FILTER,
+  nextColumnSort,
   filterArchiveQuestions,
   isDefaultFilter,
   type ArchiveFilter,
   type ArchiveIssue,
   type ArchiveSort,
+  type ArchiveSortColumn,
 } from "@/lib/archive-filter"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -62,6 +65,24 @@ function Chips<T extends string>({ label, options, value, onChange }: { label: s
         })}
       </div>
     </div>
+  )
+}
+
+/** 押すと並び替える列の見出し。今並べている列には向きの矢印と aria-sort を付ける */
+function SortHead({ column, sort, onSort, className, children }: { column: ArchiveSortColumn; sort: ArchiveSort; onSort: (s: ArchiveSort) => void; className?: string; children: React.ReactNode }) {
+  const dir = columnDirection(sort, column)
+  const Icon = dir === "ascending" ? ArrowUp : dir === "descending" ? ArrowDown : ArrowUpDown
+  return (
+    <TableHead className={className} aria-sort={dir ?? "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(nextColumnSort(sort, column))}
+        className={cn("-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50", dir && "text-foreground")}
+      >
+        {children}
+        <Icon className={cn("size-3.5", dir ? "text-primary" : "text-muted-foreground/60")} aria-hidden />
+      </button>
+    </TableHead>
   )
 }
 
@@ -220,13 +241,13 @@ export function ArchiveQuestionsTab({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">問題ID</TableHead>
-                  <TableHead className="w-28">出題日</TableHead>
-                  <TableHead className="w-28">分野</TableHead>
+                  <SortHead column="id" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-24">問題ID</SortHead>
+                  <SortHead column="posted" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-28">出題日</SortHead>
+                  <SortHead column="field" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-28">分野</SortHead>
                   <TableHead>問題文</TableHead>
-                  <TableHead className="w-24">正答率</TableHead>
-                  <TableHead className="w-20">状態</TableHead>
-                  <TableHead className="w-20">報告</TableHead>
+                  <SortHead column="accuracy" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-24">正答率</SortHead>
+                  <SortHead column="status" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-20">状態</SortHead>
+                  <SortHead column="reports" sort={filter.sort} onSort={(s) => set("sort", s)} className="w-20">報告</SortHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
