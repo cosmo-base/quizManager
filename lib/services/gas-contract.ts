@@ -33,6 +33,14 @@ export type GasAction =
   | "renderQuizCard"
   | "listPastQuestions"
   | "importPastQuestions"
+  // 過去問サイト（Archive）。GAS の Archive.gs が Archive の GAS に中継する
+  | "archiveListQuestions"
+  | "archiveGetQuestion"
+  | "archiveSaveQuestion"
+  | "archiveListReports"
+  | "archiveUpdateReport"
+  | "archiveListNotices"
+  | "archiveSaveNotice"
 
 export interface GasRequest<P = unknown> {
   action: GasAction
@@ -116,6 +124,8 @@ export interface GasConfigSummary {
   kpiSheet?: boolean
   /** カード画像のテンプレート（QUIZ_CARD_TEMPLATE_ID）。古い GAS では無い */
   quizCards?: boolean
+  /** 過去問サイトとの連携（ARCHIVE_API_URL・ARCHIVE_ADMIN_TOKEN）が設定済みか。古い GAS では無い */
+  archive?: boolean
 }
 
 /** AI（Gemini）の状態。monthCostJpy・budgetJpy は有料枠に換算した概算 */
@@ -342,3 +352,118 @@ export interface GasAutomationStatus {
   notifyConfigured: boolean
   recentLog: GasAutomationLog[]
 }
+
+/* ---------- 過去問サイト（Archive）。形は Archive の GAS（admin.*）と同じ ---------- */
+
+export type ArchiveFieldId = "astronomy" | "development" | "business" | "exploration" | "history" | "basics" | "policy"
+export type ArchiveQuestionStatus = "published" | "stopped"
+export type ArchiveDifficulty = "beginner" | "intermediate" | "advanced" | "expert" | "unknown"
+export type ArchiveReportStatus = "received" | "resolved" | "dismissed"
+export type ArchiveReportReason = "answer" | "text" | "explanation" | "other"
+export type ArchiveChoiceId = "A" | "B" | "C"
+
+export interface ArchiveReference {
+  title: string
+  url: string
+  publisher: string
+}
+
+/** archiveListQuestions：全問題（停止中・公開前も含む） */
+export interface ArchiveQuestionSummary {
+  id: string
+  status: ArchiveQuestionStatus
+  fieldId: ArchiveFieldId
+  postedOn: string
+  publishFrom: string
+  platforms: string[]
+  text: string
+  choices: { id: ArchiveChoiceId; text: string }[]
+  correct: string
+  versionId: string
+  versionNo: number
+  difficulty: ArchiveDifficulty
+  /** 参加者に見せている正答率（null は未集計） */
+  displayAccuracy: number | null
+  basicAnswers: number
+  /** 未対応の誤り報告の数 */
+  openReports: number
+}
+
+export interface ArchiveVersion {
+  versionId: string
+  versionNo: number
+  text: string
+  choices: Record<ArchiveChoiceId, string>
+  correct: string
+  explanation: string
+  references: ArchiveReference[]
+  statsVersionId: string
+  prevVersionId: string
+  createdAt: string
+  createdBy: string
+  changeReason: string
+}
+
+export interface ArchiveReport {
+  reportId: string
+  questionId: string
+  versionId: string
+  attemptId: string
+  reason: ArchiveReportReason
+  detail: string
+  createdAt: string
+  status: ArchiveReportStatus
+}
+
+/** archiveGetQuestion：1問の全内容。versions は新しい順 */
+export interface ArchiveQuestionDetail {
+  question: {
+    id: string
+    status: ArchiveQuestionStatus
+    fieldId: ArchiveFieldId
+    postedOn: string
+    publishFrom: string
+    platforms: string[]
+    currentVersionId: string
+    snsAccuracy: number | null
+    difficulty: ArchiveDifficulty
+    displayAccuracy: number | null
+    basicAnswers: number
+  }
+  versions: ArchiveVersion[]
+  reports: ArchiveReport[]
+  /** 保存したときだけ */
+  saved?: { changed: boolean; newVersionId?: string | null; statsReset?: boolean }
+}
+
+export interface ArchiveSaveQuestionInput {
+  questionId: string
+  /** 開いたときの版（ほかの人が先に直していたら保存しない） */
+  baseVersionId: string
+  text: string
+  choices: Record<ArchiveChoiceId, string>
+  correct: ArchiveChoiceId
+  explanation: string
+  references: ArchiveReference[]
+  fieldId: ArchiveFieldId
+  status: ArchiveQuestionStatus
+  /** 内容を変えたときは必須（版の記録に残る） */
+  changeReason: string
+  /** 正答率を数え直す（正解・選択肢を変えたときは GAS が必ず数え直す） */
+  resetStats: boolean
+}
+
+export interface ArchiveNotice {
+  noticeId: string
+  kind: "info" | "correction"
+  title: string
+  summary: string
+  body: string
+  questionId: string
+  before: string
+  after: string
+  publishedAt: string
+  endsAt: string
+}
+
+export type ArchiveSaveNoticeInput = Omit<ArchiveNotice, "noticeId"> & { noticeId?: string }
