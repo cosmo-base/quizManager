@@ -50,4 +50,11 @@ export const liveBackend: QuizBackend = {
   listUsers: () => callGas<GasUser[]>("listUsers", {}, "ユーザー一覧の取得"),
   setUserRole: (email, role) => callGas<{ email: string; role: Role }>("setUserRole", { email, role }, "権限の変更"),
   rejectRoleRequest: (email) => callGas<{ email: string }>("rejectRoleRequest", { email }, "申請の却下"),
+  archiveListQuestions: () => callGas("archiveListQuestions", {}, "過去問サイトの問題の読み込み"),
+  archiveGetQuestion: (questionId) => callGas("archiveGetQuestion", { questionId }, "過去問サイトの問題の読み込み"),
+  archiveSaveQuestion: (input) => callGas("archiveSaveQuestion", input, "過去問サイトの問題の保存"),
+  archiveListReports: () => callGas("archiveListReports", {}, "誤り報告の読み込み"),
+  archiveUpdateReport: (reportId, status) => callGas("archiveUpdateReport", { reportId, status }, "誤り報告の更新"),
+  archiveListNotices: () => callGas("archiveListNotices", {}, "お知らせの読み込み"),
+  archiveSaveNotice: (input) => callGas("archiveSaveNotice", input, "お知らせの保存"),
 }

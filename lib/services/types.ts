@@ -1,5 +1,6 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
 import type { ChoiceLabel, Role } from "@/lib/types"
+import type { ArchiveNotice, ArchiveQuestionDetail, ArchiveQuestionSummary, ArchiveReport, ArchiveReportStatus, ArchiveSaveNoticeInput, ArchiveSaveQuestionInput } from "./gas-contract"
 import type { GasAutomationStatus, GasMe, GasPastQuestion, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
@@ -60,6 +61,14 @@ export interface QuizBackend {
   listUsers(): Promise<GasUser[]>
   setUserRole(email: string, role: Role): Promise<{ email: string; role: Role }>
   rejectRoleRequest(email: string): Promise<{ email: string }>
+  /** 以下は過去問サイト（Archive）の運営操作。実APIモードのみ。直す操作は承認の権限 */
+  archiveListQuestions(): Promise<{ questions: ArchiveQuestionSummary[] }>
+  archiveGetQuestion(questionId: string): Promise<ArchiveQuestionDetail>
+  archiveSaveQuestion(input: ArchiveSaveQuestionInput): Promise<ArchiveQuestionDetail>
+  archiveListReports(): Promise<{ reports: ArchiveReport[] }>
+  archiveUpdateReport(reportId: string, status: ArchiveReportStatus): Promise<{ reportId: string; status: ArchiveReportStatus }>
+  archiveListNotices(): Promise<{ notices: ArchiveNotice[] }>
+  archiveSaveNotice(input: ArchiveSaveNoticeInput): Promise<{ noticeId: string }>
 }
 
 export class NotConnectedError extends Error {

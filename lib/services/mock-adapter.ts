@@ -1,9 +1,10 @@
 // デモモード用の擬似バックエンド。外部API（Gemini / X / Discord / Sheets）には一切通信しません。
 import type { ChoiceLabel, FactCheck, ResponseSnapshot } from "@/lib/types"
-import type { QuizBackend } from "./types"
+import { NotConnectedError, type QuizBackend } from "./types"
 import { DEMO_NOW } from "@/lib/format"
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const archiveNotInDemo = () => Promise.reject(new NotConnectedError("過去問サイト", "過去問サイトの管理は実APIモードでのみ使えます"))
 
 export const mockBackend: QuizBackend = {
   mode: "demo",
@@ -130,4 +131,12 @@ export const mockBackend: QuizBackend = {
   listUsers: () => Promise.resolve([]),
   setUserRole: () => Promise.reject(new Error("デモモードでは正本の権限を変えません")),
   rejectRoleRequest: () => Promise.reject(new Error("デモモードでは正本の権限を変えません")),
+  // 過去問サイトは本番のデータだけを扱う（デモのサンプルはない）
+  archiveListQuestions: archiveNotInDemo,
+  archiveGetQuestion: archiveNotInDemo,
+  archiveSaveQuestion: archiveNotInDemo,
+  archiveListReports: archiveNotInDemo,
+  archiveUpdateReport: archiveNotInDemo,
+  archiveListNotices: archiveNotInDemo,
+  archiveSaveNotice: archiveNotInDemo,
 }
