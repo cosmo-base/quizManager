@@ -1,17 +1,60 @@
 // 過去問サイト（Archive）の問題一覧の絞り込みと並び替え
 import type { ArchiveDifficulty, ArchiveFieldId, ArchiveQuestionStatus, ArchiveQuestionSummary } from "@/lib/services/gas-contract"
+import { ARCHIVE_FIELDS } from "@/lib/archive"
 
-export type ArchiveSort = "id-asc" | "id-desc" | "posted-desc" | "posted-asc" | "accuracy-asc" | "accuracy-desc" | "answers-desc" | "reports-desc"
+export type ArchiveSort =
+  | "id-asc"
+  | "id-desc"
+  | "posted-desc"
+  | "posted-asc"
+  | "field-asc"
+  | "field-desc"
+  | "accuracy-asc"
+  | "accuracy-desc"
+  | "status-asc"
+  | "status-desc"
+  | "answers-desc"
+  | "reports-desc"
+  | "reports-asc"
+
+/** 表の見出しで並び替えられる列 */
+export type ArchiveSortColumn = "id" | "posted" | "field" | "accuracy" | "status" | "reports"
+/** 列 → [初めて押したときの向き, もう一度押したときの向き] */
+export const ARCHIVE_COLUMN_SORTS: Record<ArchiveSortColumn, [ArchiveSort, ArchiveSort]> = {
+  id: ["id-asc", "id-desc"],
+  posted: ["posted-desc", "posted-asc"],
+  field: ["field-asc", "field-desc"],
+  accuracy: ["accuracy-asc", "accuracy-desc"],
+  status: ["status-asc", "status-desc"],
+  reports: ["reports-desc", "reports-asc"],
+}
+
+/** 見出しを押したときの次の並び：今の列なら向きを入れ替え、別の列ならその列の最初の向き */
+export function nextColumnSort(current: ArchiveSort, column: ArchiveSortColumn): ArchiveSort {
+  const [first, second] = ARCHIVE_COLUMN_SORTS[column]
+  return current === first ? second : first
+}
+
+/** 今の並びがその列なら向き（昇順・降順）、違えば null */
+export function columnDirection(current: ArchiveSort, column: ArchiveSortColumn): "ascending" | "descending" | null {
+  if (!ARCHIVE_COLUMN_SORTS[column].includes(current)) return null
+  return current.endsWith("-asc") ? "ascending" : "descending"
+}
 
 export const ARCHIVE_SORT_LABEL: Record<ArchiveSort, string> = {
   "id-asc": "問題ID（小さい順）",
   "id-desc": "問題ID（大きい順）",
   "posted-desc": "出題日（新しい順）",
   "posted-asc": "出題日（古い順）",
+  "field-asc": "分野（天文から）",
+  "field-desc": "分野（宇宙政策から）",
   "accuracy-asc": "正答率（低い順）",
   "accuracy-desc": "正答率（高い順）",
+  "status-asc": "状態（公開が先）",
+  "status-desc": "状態（停止が先）",
   "answers-desc": "サイトの回答数（多い順）",
   "reports-desc": "未対応の誤り報告（多い順）",
+  "reports-asc": "未対応の誤り報告（少ない順）",
 }
 
 export const ARCHIVE_PLATFORM_LABEL: Record<string, string> = { x: "X", discord: "Discord", instagram: "Instagram", mycommu: "マイコミュ" }
@@ -119,6 +162,11 @@ export function filterArchiveQuestions(list: ArchiveQuestionSummary[], f: Archiv
 
 export function sortArchiveQuestions(list: ArchiveQuestionSummary[], sort: ArchiveSort): ArchiveQuestionSummary[] {
   const byId = (a: ArchiveQuestionSummary, b: ArchiveQuestionSummary) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  const fieldRank = (x: ArchiveQuestionSummary) => {
+    const i = ARCHIVE_FIELDS.indexOf(x.fieldId)
+    return i < 0 ? ARCHIVE_FIELDS.length : i
+  }
+  const statusRank = (x: ArchiveQuestionSummary) => (x.status === "published" ? 0 : 1)
   // 正答率で並べるとき、未集計は向きにかかわらず最後
   const byAccuracy = (dir: 1 | -1) => (a: ArchiveQuestionSummary, b: ArchiveQuestionSummary) => {
     if (a.displayAccuracy === null && b.displayAccuracy === null) return byId(a, b)
@@ -131,6 +179,11 @@ export function sortArchiveQuestions(list: ArchiveQuestionSummary[], sort: Archi
     "id-desc": (a, b) => byId(b, a),
     "posted-desc": (a, b) => (b.postedOn || "").localeCompare(a.postedOn || "") || byId(a, b),
     "posted-asc": (a, b) => (a.postedOn || "9999").localeCompare(b.postedOn || "9999") || byId(a, b),
+    "field-asc": (a, b) => fieldRank(a) - fieldRank(b) || byId(a, b),
+    "field-desc": (a, b) => fieldRank(b) - fieldRank(a) || byId(a, b),
+    "status-asc": (a, b) => statusRank(a) - statusRank(b) || byId(a, b),
+    "status-desc": (a, b) => statusRank(b) - statusRank(a) || byId(a, b),
+    "reports-asc": (a, b) => a.openReports - b.openReports || byId(a, b),
     "accuracy-asc": byAccuracy(1),
     "accuracy-desc": byAccuracy(-1),
     "answers-desc": (a, b) => b.basicAnswers - a.basicAnswers || byId(a, b),
