@@ -358,6 +358,8 @@ export interface GasAutomationStatus {
 export type ArchiveFieldId = "astronomy" | "development" | "business" | "exploration" | "history" | "basics" | "policy"
 export type ArchiveQuestionStatus = "published" | "stopped"
 export type ArchiveDifficulty = "beginner" | "intermediate" | "advanced" | "expert" | "unknown"
+/** 手で固定できる難易度（不明には固定しない） */
+export type ArchiveFixedDifficulty = Exclude<ArchiveDifficulty, "unknown">
 export type ArchiveReportStatus = "received" | "resolved" | "dismissed"
 export type ArchiveReportReason = "answer" | "text" | "explanation" | "other"
 export type ArchiveChoiceId = "A" | "B" | "C"
@@ -381,7 +383,12 @@ export interface ArchiveQuestionSummary {
   correct: string
   versionId: string
   versionNo: number
+  /** サイトで使っている難易度（固定していれば固定した値） */
   difficulty: ArchiveDifficulty
+  /** 自動の判定（固定していないときの値）。古い GAS では無い */
+  autoDifficulty?: ArchiveDifficulty
+  /** 運営が手で固定した難易度。空なら自動。古い GAS では無い */
+  difficultyOverride?: ArchiveFixedDifficulty | ""
   /** 参加者に見せている正答率（null は未集計） */
   displayAccuracy: number | null
   basicAnswers: number
@@ -427,6 +434,8 @@ export interface ArchiveQuestionDetail {
     currentVersionId: string
     snsAccuracy: number | null
     difficulty: ArchiveDifficulty
+    autoDifficulty?: ArchiveDifficulty
+    difficultyOverride?: ArchiveFixedDifficulty | ""
     displayAccuracy: number | null
     basicAnswers: number
   }
@@ -451,6 +460,8 @@ export interface ArchiveSaveQuestionInput {
   changeReason: string
   /** 正答率を数え直す（正解・選択肢を変えたときは GAS が必ず数え直す） */
   resetStats: boolean
+  /** 難易度を手で固定する（空で自動に戻す）。版は増えない */
+  difficultyOverride: ArchiveFixedDifficulty | ""
 }
 
 export interface ArchiveNotice {

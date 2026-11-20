@@ -8,6 +8,7 @@ import { getBackend } from "@/lib/services"
 import type {
   ArchiveChoiceId,
   ArchiveFieldId,
+  ArchiveFixedDifficulty,
   ArchiveQuestionDetail,
   ArchiveQuestionStatus,
   ArchiveQuestionSummary,
@@ -43,9 +44,13 @@ interface Form {
   references: ArchiveReference[]
   fieldId: ArchiveFieldId
   status: ArchiveQuestionStatus
+  /** "auto" は自動（固定しない） */
+  difficulty: ArchiveFixedDifficulty | "auto"
   changeReason: string
   resetStats: boolean
 }
+
+const FIXED_DIFFICULTIES: ArchiveFixedDifficulty[] = ["beginner", "intermediate", "advanced", "expert"]
 
 function formOf(d: ArchiveQuestionDetail): Form {
   const v: ArchiveVersion | undefined = d.versions.find((x) => x.versionId === d.question.currentVersionId) ?? d.versions[0]
@@ -57,6 +62,7 @@ function formOf(d: ArchiveQuestionDetail): Form {
     references: v?.references ?? [],
     fieldId: d.question.fieldId,
     status: d.question.status,
+    difficulty: d.question.difficultyOverride || "auto",
     changeReason: "",
     resetStats: false,
   }
@@ -115,7 +121,8 @@ export function ArchiveQuestionEditor({
     const c = current
     const answer = !c || c.correct !== form.correct || ARCHIVE_CHOICES.some((k) => (c.choices[k] ?? "") !== form.choices[k].trim())
     const content = answer || !c || c.text !== form.text.trim() || c.explanation !== form.explanation.trim() || !sameRefs(c.references, form.references)
-    const meta = detail.question.fieldId !== form.fieldId || detail.question.status !== form.status
+    const meta =
+      detail.question.fieldId !== form.fieldId || detail.question.status !== form.status || (detail.question.difficultyOverride || "auto") !== form.difficulty
     return { content, answer, meta }
   }, [form, detail, current])
 
@@ -138,6 +145,7 @@ export function ArchiveQuestionEditor({
         references: form.references.filter((r) => r.title || r.url),
         fieldId: form.fieldId,
         status: form.status,
+        difficultyOverride: form.difficulty === "auto" ? "" : form.difficulty,
         changeReason: form.changeReason,
         resetStats: form.resetStats,
       })
@@ -153,6 +161,8 @@ export function ArchiveQuestionEditor({
           versionId: d.question.currentVersionId,
           versionNo: cur?.versionNo ?? 0,
           difficulty: d.question.difficulty,
+          autoDifficulty: d.question.autoDifficulty,
+          difficultyOverride: d.question.difficultyOverride,
           displayAccuracy: d.question.displayAccuracy,
         })
         if (!d.saved?.changed) {
@@ -178,7 +188,7 @@ export function ArchiveQuestionEditor({
           </DialogTitle>
           <DialogDescription>
             {detail
-              ? `出題日 ${detail.question.postedOn}・サイト公開 ${detail.question.publishFrom}・正答率 ${formatAccuracy(detail.question.displayAccuracy)}（${ARCHIVE_DIFFICULTY_LABEL[detail.question.difficulty]}、サイトの基本回答 ${detail.question.basicAnswers} 件）`
+              ? `出題日 ${detail.question.postedOn}・サイト公開 ${detail.question.publishFrom}・正答率 ${formatAccuracy(detail.question.displayAccuracy)}（${ARCHIVE_DIFFICULTY_LABEL[detail.question.difficulty]}${detail.question.difficultyOverride ? "・固定" : ""}、サイトの基本回答 ${detail.question.basicAnswers} 件）`
               : "読み込んでいます…"}
           </DialogDescription>
         </DialogHeader>
@@ -187,7 +197,7 @@ export function ArchiveQuestionEditor({
 
         {form && detail && (
           <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="arc-status">公開状態</Label>
                 <SimpleSelect
@@ -205,7 +215,25 @@ export function ArchiveQuestionEditor({
                 <Label htmlFor="arc-field">分野</Label>
                 <SimpleSelect id="arc-field" disabled={disabled} value={form.fieldId} onChange={(v) => set("fieldId", v)} options={ARCHIVE_FIELDS.map((f) => ({ value: f, label: ARCHIVE_FIELD_LABEL[f] }))} />
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="arc-difficulty">難易度</Label>
+                <SimpleSelect<Form["difficulty"]>
+                  id="arc-difficulty"
+                  disabled={disabled}
+                  value={form.difficulty}
+                  onChange={(v) => set("difficulty", v)}
+                  options={[
+                    { value: "auto", label: `自動（今の判定：${ARCHIVE_DIFFICULTY_LABEL[detail.question.autoDifficulty ?? detail.question.difficulty]}）` },
+                    ...FIXED_DIFFICULTIES.map((d) => ({ value: d, label: `${ARCHIVE_DIFFICULTY_LABEL[d]}に固定` })),
+                  ]}
+                />
+              </div>
             </div>
+            {form.difficulty !== "auto" && (
+              <p className="-mt-3 text-xs text-muted-foreground">
+                固定すると、サイトの表示・練習の絞り込み・テストの出題でこの難易度を使います。正答率の表示と自動の判定は続き、「自動」に戻すと判定の値になります。
+              </p>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="arc-text">問題文</Label>

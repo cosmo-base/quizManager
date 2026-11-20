@@ -218,6 +218,10 @@ export function ArchiveQuestionsTab({
                 <Checkbox checked={filter.revisedOnly} onCheckedChange={(c) => set("revisedOnly", Boolean(c))} />
                 修正したことがある（版が2つ以上）
               </Label>
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox checked={filter.fixedOnly} onCheckedChange={(c) => set("fixedOnly", Boolean(c))} />
+                難易度を手で固定している
+              </Label>
             </div>
           </div>
         )}
@@ -265,7 +269,10 @@ export function ArchiveQuestionsTab({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatAccuracy(x.displayAccuracy)}
-                      <span className="block text-xs">{ARCHIVE_DIFFICULTY_LABEL[x.difficulty]}</span>
+                      <span className="block text-xs">
+                        {ARCHIVE_DIFFICULTY_LABEL[x.difficulty]}
+                        {x.difficultyOverride && <span className="ml-1 rounded border border-border px-1 text-[10px]">固定</span>}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Badge variant={x.status === "published" ? "secondary" : "destructive"}>{ARCHIVE_STATUS_LABEL[x.status] ?? x.status}</Badge>

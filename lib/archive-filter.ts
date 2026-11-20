@@ -83,6 +83,8 @@ export interface ArchiveFilter {
   issues: ArchiveIssue[]
   reportedOnly: boolean
   revisedOnly: boolean
+  /** 難易度を手で固定した問題だけ */
+  fixedOnly: boolean
 }
 
 export const DEFAULT_ARCHIVE_FILTER: ArchiveFilter = {
@@ -100,6 +102,7 @@ export const DEFAULT_ARCHIVE_FILTER: ArchiveFilter = {
   issues: [],
   reportedOnly: false,
   revisedOnly: false,
+  fixedOnly: false,
 }
 
 export function issuesOf(q: ArchiveQuestionSummary): ArchiveIssue[] {
@@ -120,6 +123,7 @@ export function advancedCount(f: ArchiveFilter) {
     f.issues.length > 0,
     f.reportedOnly,
     f.revisedOnly,
+    f.fixedOnly,
   ].filter(Boolean).length
 }
 
@@ -154,6 +158,7 @@ export function filterArchiveQuestions(list: ArchiveQuestionSummary[], f: Archiv
     }
     if (f.reportedOnly && x.openReports === 0) return false
     if (f.revisedOnly && x.versionNo < 2) return false
+    if (f.fixedOnly && !x.difficultyOverride) return false
     if (!q) return true
     return x.id.toLowerCase().includes(q) || x.text.toLowerCase().includes(q) || x.choices.some((c) => c.text.toLowerCase().includes(q))
   })
