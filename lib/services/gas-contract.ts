@@ -41,6 +41,9 @@ export type GasAction =
   | "archiveUpdateReport"
   | "archiveListNotices"
   | "archiveSaveNotice"
+  | "archiveSimilarCandidates"
+  | "archiveSimilarMerge"
+  | "archiveSimilarDismiss"
 
 export interface GasRequest<P = unknown> {
   action: GasAction
@@ -481,6 +484,32 @@ export interface ArchiveSaveQuestionInput {
   /** 似た問題のまとまり（問題ID。空でまとまりから外す） */
   similarGroup?: string
   timeSensitive?: boolean
+}
+
+/** 似た問題の候補の1問分 */
+export interface ArchiveSimilarCard {
+  id: string
+  text: string
+  correctText: string
+  postedOn: string
+  platforms: string[]
+  status: ArchiveQuestionStatus
+  /** 今のまとまり（空ならなし） */
+  similarGroup: string
+}
+
+/** archiveSimilarCandidates：まだ同じまとまりでなく、「違う」としていない組み合わせ（近い順） */
+export interface ArchiveSimilarCandidates {
+  /** 候補の全数（返したのは先頭の limit 組） */
+  total: number
+  candidates: {
+    a: ArchiveSimilarCard
+    b: ArchiveSimilarCard
+    /** 近さ（0〜1） */
+    score: number
+    /** 答えが分かってしまう組み合わせとして、すでに同じ回に出さない */
+    hint: boolean
+  }[]
 }
 
 /** 同じまとまりの問題（問題の画面に出す） */

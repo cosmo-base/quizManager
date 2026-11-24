@@ -57,4 +57,7 @@ export const liveBackend: QuizBackend = {
   archiveUpdateReport: (reportId, status) => callGas("archiveUpdateReport", { reportId, status }, "誤り報告の更新"),
   archiveListNotices: () => callGas("archiveListNotices", {}, "お知らせの読み込み"),
   archiveSaveNotice: (input) => callGas("archiveSaveNotice", input, "お知らせの保存"),
+  archiveSimilarCandidates: (limit) => callGas("archiveSimilarCandidates", { limit }, "似た問題の候補の読み込み"),
+  archiveSimilarMerge: (questionA, questionB) => callGas("archiveSimilarMerge", { questionA, questionB }, "似た問題のまとめ"),
+  archiveSimilarDismiss: (questionA, questionB) => callGas("archiveSimilarDismiss", { questionA, questionB }, "似た問題の候補の除外"),
 }

@@ -1,6 +1,6 @@
 import type { AIInsight, FactCheck, Integration, PostJob, Question, ResponseSnapshot } from "@/lib/types"
 import type { ChoiceLabel, Role } from "@/lib/types"
-import type { ArchiveNotice, ArchiveQuestionDetail, ArchiveQuestionSummary, ArchiveReport, ArchiveReportStatus, ArchiveSaveNoticeInput, ArchiveSaveQuestionInput } from "./gas-contract"
+import type { ArchiveNotice, ArchiveQuestionDetail, ArchiveQuestionSummary, ArchiveReport, ArchiveReportStatus, ArchiveSaveNoticeInput, ArchiveSaveQuestionInput, ArchiveSimilarCandidates } from "./gas-contract"
 import type { GasAutomationStatus, GasMe, GasPastQuestion, GasPostJob, GasQuestion, GasRoleRequest, GasStatus, GasUser, GenerateQuestionsInput, GenerateQuestionsResult, ImportQuestionInput, ImportQuestionsResult, SaveQuestionInput } from "./gas-contract"
 
 export interface InsightRequest {
@@ -69,6 +69,9 @@ export interface QuizBackend {
   archiveUpdateReport(reportId: string, status: ArchiveReportStatus): Promise<{ reportId: string; status: ArchiveReportStatus }>
   archiveListNotices(): Promise<{ notices: ArchiveNotice[] }>
   archiveSaveNotice(input: ArchiveSaveNoticeInput): Promise<{ noticeId: string }>
+  archiveSimilarCandidates(limit: number): Promise<ArchiveSimilarCandidates>
+  archiveSimilarMerge(questionA: string, questionB: string): Promise<{ group: string }>
+  archiveSimilarDismiss(questionA: string, questionB: string): Promise<{ dismissed: boolean }>
 }
 
 export class NotConnectedError extends Error {

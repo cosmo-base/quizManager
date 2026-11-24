@@ -139,4 +139,7 @@ export const mockBackend: QuizBackend = {
   archiveUpdateReport: archiveNotInDemo,
   archiveListNotices: archiveNotInDemo,
   archiveSaveNotice: archiveNotInDemo,
+  archiveSimilarCandidates: archiveNotInDemo,
+  archiveSimilarMerge: archiveNotInDemo,
+  archiveSimilarDismiss: archiveNotInDemo,
 }
