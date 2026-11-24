@@ -308,6 +308,25 @@ export function ArchiveQuestionEditor({
                 )}
               </div>
             )}
+            {(detail.hintConflicts?.length ?? 0) > 0 && (
+              <details className="rounded-lg border border-border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">同じ回に出さない問題（{detail.hintConflicts!.length}）</summary>
+                <p className="mt-1 text-xs text-muted-foreground">どちらかの答えが、もう一方の問題文に出ているため、1回の練習・テストには一緒に出しません（自動）。</p>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {detail.hintConflicts!.map((h) => (
+                    <li key={h.id} className="flex flex-col">
+                      <span>
+                        <span className="font-mono text-xs">{h.id}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          「{h.word}」{h.status === "stopped" ? "・停止中" : ""}
+                        </span>
+                      </span>
+                      <span className="line-clamp-2">{h.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="arc-text">問題文</Label>

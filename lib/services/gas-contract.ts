@@ -450,6 +450,8 @@ export interface ArchiveQuestionDetail {
   }
   /** 同じまとまりのほかの問題。GAS 1.8.0 から */
   similar?: ArchiveSimilarQuestion[]
+  /** 答えが分かってしまうため、同じ回に出さない問題（どちらかの答えが、もう一方の問題文に出ている）。GAS 1.8.0 から */
+  hintConflicts?: { id: string; text: string; word: string; status: ArchiveQuestionStatus }[]
   versions: ArchiveVersion[]
   reports: ArchiveReport[]
   /** 保存したときだけ */
