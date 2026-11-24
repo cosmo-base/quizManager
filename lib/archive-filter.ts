@@ -85,6 +85,10 @@ export interface ArchiveFilter {
   revisedOnly: boolean
   /** 難易度を手で固定した問題だけ */
   fixedOnly: boolean
+  /** 時事問題だけ */
+  timeSensitiveOnly: boolean
+  /** 似た問題のまとまりに入っている問題だけ */
+  groupedOnly: boolean
 }
 
 export const DEFAULT_ARCHIVE_FILTER: ArchiveFilter = {
@@ -103,6 +107,8 @@ export const DEFAULT_ARCHIVE_FILTER: ArchiveFilter = {
   reportedOnly: false,
   revisedOnly: false,
   fixedOnly: false,
+  timeSensitiveOnly: false,
+  groupedOnly: false,
 }
 
 export function issuesOf(q: ArchiveQuestionSummary): ArchiveIssue[] {
@@ -124,6 +130,8 @@ export function advancedCount(f: ArchiveFilter) {
     f.reportedOnly,
     f.revisedOnly,
     f.fixedOnly,
+    f.timeSensitiveOnly,
+    f.groupedOnly,
   ].filter(Boolean).length
 }
 
@@ -159,8 +167,11 @@ export function filterArchiveQuestions(list: ArchiveQuestionSummary[], f: Archiv
     if (f.reportedOnly && x.openReports === 0) return false
     if (f.revisedOnly && x.versionNo < 2) return false
     if (f.fixedOnly && !x.difficultyOverride) return false
+    if (f.timeSensitiveOnly && !x.timeSensitive) return false
+    if (f.groupedOnly && !x.similarGroup) return false
     if (!q) return true
-    return x.id.toLowerCase().includes(q) || x.text.toLowerCase().includes(q) || x.choices.some((c) => c.text.toLowerCase().includes(q))
+    // まとまりの名前（Q-0123）で探すと、そのまとまりの問題がそろって出る
+    return x.id.toLowerCase().includes(q) || (x.similarGroup ?? "").toLowerCase() === q || x.text.toLowerCase().includes(q) || x.choices.some((c) => c.text.toLowerCase().includes(q))
   })
   return sortArchiveQuestions(out, f.sort)
 }

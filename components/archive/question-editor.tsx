@@ -46,6 +46,11 @@ interface Form {
   status: ArchiveQuestionStatus
   /** "auto" は自動（固定しない） */
   difficulty: ArchiveFixedDifficulty | "auto"
+  /** 見積もり（推定の出発点）。"" は未設定 */
+  prior: ArchiveFixedDifficulty | ""
+  /** 似た問題のまとまり（問題ID）。"" はなし */
+  similarGroup: string
+  timeSensitive: boolean
   changeReason: string
   resetStats: boolean
 }
@@ -63,10 +68,19 @@ function formOf(d: ArchiveQuestionDetail): Form {
     fieldId: d.question.fieldId,
     status: d.question.status,
     difficulty: d.question.difficultyOverride || "auto",
+    prior: d.question.difficultyPrior || "",
+    similarGroup: d.question.similarGroup ?? "",
+    timeSensitive: d.question.timeSensitive === true,
     changeReason: "",
     resetStats: false,
   }
 }
+
+/** 過去問サイトの GAS が見積もり・似た問題・時事に対応しているか（1.8.0 から） */
+const supportsGroups = (d: ArchiveQuestionDetail) => d.question.similarGroup !== undefined
+
+/** 入力したまとまりの名前をそろえる（全角・小文字も受け付ける） */
+const normalizeGroup = (s: string) => s.normalize("NFKC").trim().toUpperCase()
 
 const sameRefs = (a: ArchiveReference[], b: ArchiveReference[]) =>
   JSON.stringify(a.filter((r) => r.title || r.url)) === JSON.stringify(b.filter((r) => r.title || r.url))
@@ -122,7 +136,13 @@ export function ArchiveQuestionEditor({
     const answer = !c || c.correct !== form.correct || ARCHIVE_CHOICES.some((k) => (c.choices[k] ?? "") !== form.choices[k].trim())
     const content = answer || !c || c.text !== form.text.trim() || c.explanation !== form.explanation.trim() || !sameRefs(c.references, form.references)
     const meta =
-      detail.question.fieldId !== form.fieldId || detail.question.status !== form.status || (detail.question.difficultyOverride || "auto") !== form.difficulty
+      detail.question.fieldId !== form.fieldId ||
+      detail.question.status !== form.status ||
+      (detail.question.difficultyOverride || "auto") !== form.difficulty ||
+      (supportsGroups(detail) &&
+        ((detail.question.difficultyPrior || "") !== form.prior ||
+          (detail.question.similarGroup ?? "") !== normalizeGroup(form.similarGroup) ||
+          (detail.question.timeSensitive === true) !== form.timeSensitive))
     return { content, answer, meta }
   }, [form, detail, current])
 
@@ -146,6 +166,7 @@ export function ArchiveQuestionEditor({
         fieldId: form.fieldId,
         status: form.status,
         difficultyOverride: form.difficulty === "auto" ? "" : form.difficulty,
+        ...(supportsGroups(detail) ? { difficultyPrior: form.prior, similarGroup: normalizeGroup(form.similarGroup), timeSensitive: form.timeSensitive } : {}),
         changeReason: form.changeReason,
         resetStats: form.resetStats,
       })
@@ -163,6 +184,9 @@ export function ArchiveQuestionEditor({
           difficulty: d.question.difficulty,
           autoDifficulty: d.question.autoDifficulty,
           difficultyOverride: d.question.difficultyOverride,
+          difficultyPrior: d.question.difficultyPrior,
+          similarGroup: d.question.similarGroup,
+          timeSensitive: d.question.timeSensitive,
           displayAccuracy: d.question.displayAccuracy,
         })
         if (!d.saved?.changed) {
@@ -233,6 +257,75 @@ export function ArchiveQuestionEditor({
               <p className="-mt-3 text-xs text-muted-foreground">
                 固定すると、サイトの表示・練習の絞り込み・テストの出題でこの難易度を使います。正答率の表示と自動の判定は続き、「自動」に戻すと判定の値になります。
               </p>
+            )}
+
+            {supportsGroups(detail) && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="arc-prior">見積もり（自動の判定の出発点）</Label>
+                  <SimpleSelect<Form["prior"]>
+                    id="arc-prior"
+                    disabled={disabled}
+                    value={form.prior}
+                    onChange={(v) => set("prior", v)}
+                    options={[{ value: "", label: "未設定" }, ...FIXED_DIFFICULTIES.map((d) => ({ value: d, label: ARCHIVE_DIFFICULTY_LABEL[d] }))]}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="arc-group">似た問題のまとまり</Label>
+                  <Input id="arc-group" disabled={disabled} placeholder="例：Q-0123（空ならなし）" value={form.similarGroup} onChange={(e) => set("similarGroup", e.target.value)} />
+                </div>
+                <label className="flex items-start gap-2 pt-6 text-sm">
+                  <Checkbox className="mt-0.5" disabled={disabled} checked={form.timeSensitive} onCheckedChange={(c) => set("timeSensitive", Boolean(c))} />
+                  <span>
+                    時事問題
+                    <span className="block text-xs text-muted-foreground">サイトに「出題日の時点の内容です」と出します</span>
+                  </span>
+                </label>
+              </div>
+            )}
+            {supportsGroups(detail) && (
+              <div className="-mt-3 flex flex-col gap-1.5 text-xs text-muted-foreground">
+                <p>
+                  同じまとまりの問題は、1回の練習・テストに1問までしか出ません。まとまりの名前は、似た問題のうち1つの問題IDです。ほかのまとまりに入っている問題のIDを入れると、そのまとまりに入ります。
+                </p>
+                {(detail.similar?.length ?? 0) > 0 && (
+                  <ul className="flex flex-col gap-1 rounded-lg border border-border p-2 text-sm text-foreground">
+                    {detail.similar!.map((m) => (
+                      <li key={m.id} className="flex flex-col">
+                        <span>
+                          <span className="font-mono text-xs">{m.id}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {m.postedOn}
+                            {m.status === "stopped" ? "・停止中" : ""}
+                          </span>
+                        </span>
+                        <span className="line-clamp-2">{m.text}</span>
+                        <span className="text-xs text-muted-foreground">正解：{m.correctText}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {(detail.hintConflicts?.length ?? 0) > 0 && (
+              <details className="rounded-lg border border-border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">同じ回に出さない問題（{detail.hintConflicts!.length}）</summary>
+                <p className="mt-1 text-xs text-muted-foreground">どちらかの答えが、もう一方の問題文に出ているため、1回の練習・テストには一緒に出しません（自動）。</p>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {detail.hintConflicts!.map((h) => (
+                    <li key={h.id} className="flex flex-col">
+                      <span>
+                        <span className="font-mono text-xs">{h.id}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          「{h.word}」{h.status === "stopped" ? "・停止中" : ""}
+                        </span>
+                      </span>
+                      <span className="line-clamp-2">{h.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
 
             <div className="flex flex-col gap-1.5">

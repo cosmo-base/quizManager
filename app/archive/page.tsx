@@ -10,11 +10,13 @@ import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState, PermissionNote } from "@/components/shared/states"
 import { ArchiveQuestionsTab } from "@/components/archive/questions-tab"
 import { ArchiveReportsTab } from "@/components/archive/reports-tab"
+import { ArchiveSimilarTab } from "@/components/archive/similar-tab"
 import { ArchiveNoticesTab } from "@/components/archive/notices-tab"
 import type { ArchiveSaveNoticeInput } from "@/lib/services/gas-contract"
 
 const TABS = [
   { value: "questions", label: "問題" },
+  { value: "similar", label: "似た問題" },
   { value: "reports", label: "誤り報告" },
   { value: "notices", label: "お知らせ" },
 ] as const
@@ -96,6 +98,9 @@ function ArchiveContent() {
               router.replace("/archive?tab=notices")
             }}
           />
+        </TabsContent>
+        <TabsContent value="similar">
+          <ArchiveSimilarTab canEdit={canEdit} onOpenQuestion={openQuestion} />
         </TabsContent>
         <TabsContent value="reports">
           <ArchiveReportsTab canEdit={canEdit} onOpenQuestion={openQuestion} />

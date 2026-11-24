@@ -222,6 +222,14 @@ export function ArchiveQuestionsTab({
                 <Checkbox checked={filter.fixedOnly} onCheckedChange={(c) => set("fixedOnly", Boolean(c))} />
                 難易度を手で固定している
               </Label>
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox checked={filter.timeSensitiveOnly} onCheckedChange={(c) => set("timeSensitiveOnly", Boolean(c))} />
+                時事問題
+              </Label>
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox checked={filter.groupedOnly} onCheckedChange={(c) => set("groupedOnly", Boolean(c))} />
+                似た問題のまとまりに入っている
+              </Label>
             </div>
           </div>
         )}
@@ -266,6 +274,12 @@ export function ArchiveQuestionsTab({
                     <TableCell>{ARCHIVE_FIELD_LABEL[x.fieldId] ?? x.fieldId}</TableCell>
                     <TableCell className="max-w-md">
                       <span className="line-clamp-2 whitespace-normal">{x.text || <span className="text-muted-foreground">（問題文がありません）</span>}</span>
+                      {(x.timeSensitive || x.similarGroup) && (
+                        <span className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                          {x.timeSensitive && <span className="rounded border border-border px-1">時事</span>}
+                          {x.similarGroup && <span className="rounded border border-border px-1 font-mono">似：{x.similarGroup}</span>}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatAccuracy(x.displayAccuracy)}
