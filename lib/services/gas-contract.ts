@@ -389,6 +389,12 @@ export interface ArchiveQuestionSummary {
   autoDifficulty?: ArchiveDifficulty
   /** 運営が手で固定した難易度。空なら自動。古い GAS では無い */
   difficultyOverride?: ArchiveFixedDifficulty | ""
+  /** 運営の見積もり（推定の出発点）。空は未設定。GAS 1.8.0 から */
+  difficultyPrior?: ArchiveFixedDifficulty | ""
+  /** 似た問題のまとまり（まとまりの元の問題ID）。空ならなし。GAS 1.8.0 から */
+  similarGroup?: string
+  /** 時事問題（サイトに「出題時点の内容です」と出す）。GAS 1.8.0 から */
+  timeSensitive?: boolean
   /** 参加者に見せている正答率（null は未集計） */
   displayAccuracy: number | null
   basicAnswers: number
@@ -438,7 +444,12 @@ export interface ArchiveQuestionDetail {
     difficultyOverride?: ArchiveFixedDifficulty | ""
     displayAccuracy: number | null
     basicAnswers: number
+    difficultyPrior?: ArchiveFixedDifficulty | ""
+    similarGroup?: string
+    timeSensitive?: boolean
   }
+  /** 同じまとまりのほかの問題。GAS 1.8.0 から */
+  similar?: ArchiveSimilarQuestion[]
   versions: ArchiveVersion[]
   reports: ArchiveReport[]
   /** 保存したときだけ */
@@ -462,6 +473,22 @@ export interface ArchiveSaveQuestionInput {
   resetStats: boolean
   /** 難易度を手で固定する（空で自動に戻す）。版は増えない */
   difficultyOverride: ArchiveFixedDifficulty | ""
+  /** 以下は版を増やさない。送らなければ変えない（GAS 1.8.0 から） */
+  /** 運営の見積もり（空で未設定） */
+  difficultyPrior?: ArchiveFixedDifficulty | ""
+  /** 似た問題のまとまり（問題ID。空でまとまりから外す） */
+  similarGroup?: string
+  timeSensitive?: boolean
+}
+
+/** 同じまとまりの問題（問題の画面に出す） */
+export interface ArchiveSimilarQuestion {
+  id: string
+  text: string
+  /** 正解の選択肢の文字 */
+  correctText: string
+  postedOn: string
+  status: ArchiveQuestionStatus
 }
 
 export interface ArchiveNotice {
