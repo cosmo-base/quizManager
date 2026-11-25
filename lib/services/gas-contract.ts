@@ -4,6 +4,7 @@
 import type { ChoiceLabel, Choice, Difficulty, FactCheck, Platform, PostStatus, QuestionStatus, ResponseSnapshot, Role } from "@/lib/types"
 
 export type GasAction =
+  | "startSession"
   | "testConnection"
   | "getStatus"
   | "listQuestions"
@@ -47,16 +48,20 @@ export type GasAction =
 
 export interface GasRequest<P = unknown> {
   action: GasAction
-  /** Google ログインの ID トークン（GAS 側で検証） */
-  idToken: string
+  /** ログインのセッション（startSession で GAS が出した7日もつもの。GAS 側で署名と期限を確認） */
+  session?: string
+  /** Google ログインの ID トークン（startSession で使う。古い GAS には毎回これを送る） */
+  idToken?: string
+  /** ポータルからの引換券（startSession でだけ使う） */
+  ticket?: string
   payload: P
 }
 
 export type GasResponse<T> =
   | { ok: true; data: T }
   /** outcome=unknown は成否不明。UI から自動で再実行しないこと */
-  /** reason=not_allowed は ALLOWED_EMAILS に無いアカウント（ログイン画面で案内する） */
-  | { ok: false; outcome: "failed" | "unknown"; error: string; reason?: "not_allowed" }
+  /** reason=not_allowed は使えないアカウント（ログイン画面で案内する）。auth はログインの期限切れ（ログインし直す） */
+  | { ok: false; outcome: "failed" | "unknown"; error: string; reason?: "not_allowed" | "auth" }
 
 /** 権限の申請（管理者が承認・却下するまで残る） */
 export interface GasRoleRequest {
@@ -536,3 +541,10 @@ export interface ArchiveNotice {
 }
 
 export type ArchiveSaveNoticeInput = Omit<ArchiveNotice, "noticeId"> & { noticeId?: string }
+
+/** startSession：Google の ID トークンかポータルの引換券で、7日もつセッションを出す */
+export interface GasSession {
+  session: string
+  expiresAt: string
+  me: { email: string; name: string }
+}
