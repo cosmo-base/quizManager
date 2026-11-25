@@ -16,6 +16,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { SimpleSelect } from "@/components/shared/simple-select"
 import { EmptyState } from "@/components/shared/states"
 
+/** 訂正のお知らせは、はじめから30日後に終わるようにする（ホームに出し続けないため。変えられる） */
+const CORRECTION_DAYS = 30
+const correctionEnd = () => new Date(Date.now() + CORRECTION_DAYS * 24 * 3600 * 1000).toISOString()
+
 const EMPTY: ArchiveSaveNoticeInput = { kind: "info", title: "", summary: "", body: "", questionId: "", before: "", after: "", publishedAt: "", endsAt: "" }
 
 function stateOf(n: ArchiveNotice, now: number): { label: string; variant: "secondary" | "outline" | "destructive" } {
@@ -140,13 +144,27 @@ function NoticeDialog({ value, onClose, onSave }: { value: ArchiveSaveNoticeInpu
   const [f, setF] = useState<ArchiveSaveNoticeInput>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  // 終了日時を自動で入れたか（種類を「お知らせ」に戻したら消すため）
+  const [autoEnd, setAutoEnd] = useState(false)
   useEffect(() => {
     if (value) {
-      setF(value)
+      const auto = !value.noticeId && value.kind === "correction" && !value.endsAt
+      setF(auto ? { ...value, endsAt: correctionEnd() } : value)
+      setAutoEnd(auto)
       setError("")
     }
   }, [value])
   const set = <K extends keyof ArchiveSaveNoticeInput>(k: K, v: ArchiveSaveNoticeInput[K]) => setF((p) => ({ ...p, [k]: v }))
+  const setKind = (kind: ArchiveSaveNoticeInput["kind"]) => {
+    if (f.noticeId) return set("kind", kind)
+    if (kind === "correction" && !f.endsAt) {
+      setF((p) => ({ ...p, kind, endsAt: correctionEnd() }))
+      setAutoEnd(true)
+    } else if (kind === "info" && autoEnd) {
+      setF((p) => ({ ...p, kind, endsAt: "" }))
+      setAutoEnd(false)
+    } else set("kind", kind)
+  }
   const correction = f.kind === "correction"
   const invalid = !f.title.trim() || (correction && !f.questionId.trim())
 
@@ -172,7 +190,7 @@ function NoticeDialog({ value, onClose, onSave }: { value: ArchiveSaveNoticeInpu
             <SimpleSelect
               id="ntc-kind"
               value={f.kind}
-              onChange={(v) => set("kind", v)}
+              onChange={setKind}
               options={[
                 { value: "info", label: "お知らせ" },
                 { value: "correction", label: "訂正（問題の正解・内容を直したとき）" },
@@ -214,7 +232,16 @@ function NoticeDialog({ value, onClose, onSave }: { value: ArchiveSaveNoticeInpu
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ntc-end">終了日時（空なら出し続ける）</Label>
-              <Input id="ntc-end" type="datetime-local" value={isoToJstInput(f.endsAt)} onChange={(e) => set("endsAt", jstInputToIso(e.target.value))} />
+              <Input
+                id="ntc-end"
+                type="datetime-local"
+                value={isoToJstInput(f.endsAt)}
+                onChange={(e) => {
+                  set("endsAt", jstInputToIso(e.target.value))
+                  setAutoEnd(false)
+                }}
+              />
+              {autoEnd && <p className="text-xs text-muted-foreground">訂正は{CORRECTION_DAYS}日後に終わるように入れています（変えられます）。</p>}
             </div>
           </div>
           {f.noticeId && (
