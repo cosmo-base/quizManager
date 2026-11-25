@@ -1,21 +1,21 @@
 "use client"
 
-// Google ログイン（Google Identity Services）。ID トークンを GAS 送信用に保持する。
+// ログイン。Google でログインする（またはポータルから引き継ぐ）と、GAS が7日もつセッションを出す。
 // クライアント ID はビルド時に NEXT_PUBLIC_GOOGLE_CLIENT_ID で渡す。未設定なら機能を出さない。
-// 表示用にトークンの中身（email・有効期限）を読むだけで、検証は GAS 側で行う。
-// ログインを保つ：ID トークン（約 1 時間で失効）はそのタブの sessionStorage にだけ置き、開き直しても失効までは使う。
-// 失効の少し前と、保存がないときは Google の自動ログイン（prompt。一度ログインしたブラウザならボタン不要）で取り直す。
-// ログアウトしたら自動ログインを止める（disableAutoSelect）。localStorage には置かない（タブを閉じれば消える）。
+// - セッションはこのブラウザの localStorage に置く（タブを閉じても、別のタブでもログインしたまま）
+// - ポータルの「開く」から来たときは、URL の #fsif_ticket=…（引換券）でログインする（Google の画面は出ない）
+// - 使えるかどうかと権限は、GAS が毎回確かめる（アクセス権限管理につないでいればそちら。役割を外せば最大5分で使えなくなる）
+// - ログアウトしたら自動ログインを止める（disableAutoSelect）。ポータルのログアウトとは別
+// 古い GAS（startSession が無い）のときは、以前と同じく Google の ID トークン（約1時間）をそのまま使う。
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
-import { setGasIdToken } from "@/lib/services/gas-client"
+import { GasError, setAuthExpiredHandler, setGasToken, startGasSession } from "@/lib/services/gas-client"
 
 // 前後に改行が混ざると Google が invalid_client を返すため trim する
 export const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim()
 const GIS_SRC = "https://accounts.google.com/gsi/client"
-const STORAGE_KEY = "cbquiz.idToken"
-/** 失効のこの時間前に取り直しを始める */
-const RENEW_BEFORE_MS = 5 * 60 * 1000
-/** 残りがこれより短い保存済みトークンは使わない */
+const STORAGE_KEY = "cbquiz.session"
+const TICKET_PARAM = "fsif_ticket"
+/** 残りがこれより短い保存済みのログインは使わない */
 const MIN_REMAINING_MS = 60 * 1000
 
 interface GoogleIdApi {
@@ -41,25 +41,48 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+/** 保存するログイン（セッション。古い GAS なら ID トークン） */
+interface Stored {
+  token: string
+  email: string
+  expiresAt: string
+}
+
 function decodePayload(token: string): { email?: string; exp?: number } {
   const part = token.split(".")[1] ?? ""
   const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"))
   return JSON.parse(decodeURIComponent(Array.from(json, (c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")).join("")))
 }
 
-function readStored(): string | null {
+function readStored(): Stored | null {
   try {
-    return window.sessionStorage.getItem(STORAGE_KEY)
+    const s = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null") as Stored | null
+    return s?.token && Date.parse(s.expiresAt) - Date.now() > MIN_REMAINING_MS ? s : null
   } catch {
     return null
   }
 }
-function writeStored(token: string | null) {
+function writeStored(s: Stored | null) {
   try {
-    if (token) window.sessionStorage.setItem(STORAGE_KEY, token)
-    else window.sessionStorage.removeItem(STORAGE_KEY)
+    if (s) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+    else window.localStorage.removeItem(STORAGE_KEY)
   } catch {
     // 保存できない環境（プライベートモードなど）では、開き直すたびにログインする
+  }
+}
+
+/** URL の #fsif_ticket=…（ポータルからの引換券）を取り出し、URL からは消す */
+function takeTicket(): string {
+  try {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+    const ticket = hash.get(TICKET_PARAM)
+    if (!ticket) return ""
+    hash.delete(TICKET_PARAM)
+    const rest = hash.toString()
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest ? "#" + rest : ""))
+    return ticket
+  } catch {
+    return ""
   }
 }
 
@@ -79,42 +102,48 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   const [ready, setReady] = useState(false)
   const [email, setEmail] = useState<string | null>(null)
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const renewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const buttonEl = useRef<HTMLElement | null>(null)
 
-  const clearTimers = () => {
-    if (expiryTimer.current) clearTimeout(expiryTimer.current)
-    if (renewTimer.current) clearTimeout(renewTimer.current)
-  }
-
   const clear = useCallback(() => {
-    setGasIdToken(null)
+    setGasToken(null)
     setEmail(null)
     writeStored(null)
-    clearTimers()
+    if (expiryTimer.current) clearTimeout(expiryTimer.current)
   }, [])
 
-  /** Google の自動ログインを試す（できないときは何も起きず、ログイン画面のボタンで入る） */
-  const tryAutoSignIn = useCallback(() => {
-    const id = window.google?.accounts?.id
-    if (id && typeof id.prompt === "function") id.prompt()
-  }, [])
-
-  /** トークンを使い始める。失効の少し前に取り直し、失効したらログアウト状態に戻す */
+  /** ログインを使い始める。期限が来たらログアウト状態に戻す */
   const accept = useCallback(
-    (credential: string) => {
-      const { email, exp } = decodePayload(credential)
-      setGasIdToken(credential)
-      setEmail(email ?? null)
-      writeStored(credential)
-      clearTimers()
-      if (exp) {
-        const remaining = exp * 1000 - Date.now()
-        renewTimer.current = setTimeout(tryAutoSignIn, Math.max(0, remaining - RENEW_BEFORE_MS))
-        expiryTimer.current = setTimeout(clear, Math.max(0, remaining))
+    (s: Stored) => {
+      setGasToken(s.token)
+      setEmail(s.email)
+      writeStored(s)
+      if (expiryTimer.current) clearTimeout(expiryTimer.current)
+      expiryTimer.current = setTimeout(clear, Math.min(Math.max(0, Date.parse(s.expiresAt) - Date.now()), 2_000_000_000))
+    },
+    [clear],
+  )
+
+  /** Google の ID トークンか引換券で、GAS にセッションを頼む */
+  const begin = useCallback(
+    async (cred: { idToken: string } | { ticket: string }) => {
+      try {
+        const r = await startGasSession(cred)
+        if (r) return accept({ token: r.session, email: r.me.email, expiresAt: r.expiresAt })
+        // 古い GAS：ID トークンをそのまま使う（約1時間）
+        if ("idToken" in cred) {
+          const { email, exp } = decodePayload(cred.idToken)
+          accept({ token: cred.idToken, email: email ?? "", expiresAt: new Date(exp ? exp * 1000 : Date.now() + 3600_000).toISOString() })
+        }
+      } catch (e) {
+        // 使えないアカウント：ID トークンのまま進め、ログイン画面に理由と「別のアカウントでログイン」を出す
+        if ("idToken" in cred && e instanceof GasError && e.reason === "not_allowed") {
+          const { email, exp } = decodePayload(cred.idToken)
+          accept({ token: cred.idToken, email: email ?? "", expiresAt: new Date(exp ? exp * 1000 : Date.now() + 3600_000).toISOString() })
+        }
+        // 引換券がだめなときは、ふつうのログイン（ボタン・自動ログイン）で入れる
       }
     },
-    [clear, tryAutoSignIn],
+    [accept],
   )
 
   const renderButton = useCallback(() => {
@@ -126,39 +155,37 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return
     let cancelled = false
-    // 開き直したとき：まだ十分に有効な保存済みトークンがあれば、そのまま使う
-    let storedUsed = false
-    const stored = readStored()
-    if (stored) {
+    setAuthExpiredHandler(clear)
+    void (async () => {
+      // ポータルからの引換券 → 保存済みのログイン → Google の自動ログイン の順に試す
+      const ticket = takeTicket()
+      if (ticket) await begin({ ticket })
+      const stored = readStored()
+      if (stored) accept(stored)
+      const signedIn = !!stored
       try {
-        const { exp } = decodePayload(stored)
-        if (exp && exp * 1000 - Date.now() > MIN_REMAINING_MS) {
-          accept(stored)
-          storedUsed = true
-        } else writeStored(null)
+        await loadGis()
       } catch {
-        writeStored(null)
+        setReady(false)
+        return
       }
-    }
-    loadGis()
-      .then(() => {
-        if (cancelled || !window.google) return
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          // 一度ログインしたアカウントなら、ボタンを押さずにログインし直す（ログアウト後は disableAutoSelect で止まる）
-          auto_select: true,
-          use_fedcm_for_prompt: true,
-          callback: ({ credential }) => accept(credential),
-        })
-        setReady(true)
-        renderButton()
-        if (!storedUsed) tryAutoSignIn()
+      if (cancelled || !window.google) return
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        // 一度ログインしたアカウントなら、ボタンを押さずにログインし直す（ログアウト後は disableAutoSelect で止まる）
+        auto_select: true,
+        use_fedcm_for_prompt: true,
+        callback: ({ credential }) => void begin({ idToken: credential }),
       })
-      .catch(() => setReady(false))
+      setReady(true)
+      renderButton()
+      if (!signedIn) window.google.accounts.id.prompt()
+    })()
     return () => {
       cancelled = true
+      setAuthExpiredHandler(null)
     }
-  }, [accept, renderButton, tryAutoSignIn])
+  }, [accept, begin, clear, renderButton])
 
   const buttonRef = useCallback(
     (el: HTMLElement | null) => {
